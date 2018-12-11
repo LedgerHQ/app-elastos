@@ -5,7 +5,6 @@
 #define BASE_ENCODING_H
 
 #include <stdbool.h>
-#include "debug.h"
 #include "os.h"
 
 #define BASEX_DIVISION_BUFFER_SIZE 128

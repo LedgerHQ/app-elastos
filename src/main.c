@@ -24,6 +24,8 @@
 #include "bagl.h"
 #include "base-encoding.h"
 
+#define DEBUG_OUT_ENABLED false
+
 #define MAX_EXIT_TIMER 4098
 
 #define EXIT_TIMER_REFRESH_INTERVAL 512
@@ -298,8 +300,11 @@ static void elastos_main(void) {
 							cx_sha256_t pubKeyHash;
 							cx_sha256_init(&pubKeyHash);
 
-							cx_hash(&pubKeyHash.header, CX_LAST, publicKey.W, 65, result);
-							tx += cx_ecdsa_sign((void*) &privateKey, CX_RND_RFC6979 | CX_LAST, CX_SHA256, result, sizeof(result), G_io_apdu_buffer + tx, NULL);
+							cx_hash(&pubKeyHash.header, CX_LAST, publicKey.W, 65, result, sizeof(result));
+
+    					unsigned int info = 0;
+							unsigned int max_sig_length = sizeof(G_io_apdu_buffer) - tx;
+							tx += cx_ecdsa_sign((void*) &privateKey, CX_RND_RFC6979 | CX_LAST, CX_SHA256, result, sizeof(result), G_io_apdu_buffer + tx, max_sig_length, &info);
 
 							// return 0x9000 OK.
 							THROW(0x9000);
@@ -323,7 +328,6 @@ case INS_GET_BASE_10_ENCODED: {
 					os_memset(out,0x00,sizeof(out));
 					const unsigned int out_length = sizeof(out);
 					const bool enable_debug = DEBUG_OUT_ENABLED;
-					clearDebug();
 					encode_base_10(in, in_len, out,out_length,enable_debug);
 					G_io_apdu_buffer[tx++] = 0xFF;
 					G_io_apdu_buffer[tx++] = 0xF0;

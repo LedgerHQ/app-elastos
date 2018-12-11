@@ -63,7 +63,6 @@ static unsigned int divide_and_remainder(const unsigned char * divided, const un
                                          unsigned char * dividend, const unsigned int dividend_len,
                                          const unsigned int divisor, const unsigned int radix,
                                          const bool enable_debug) {
-	bool divide_and_remainder_debug = false;
 	unsigned int divided_part = 0;
 	unsigned int division_index = 0;
 	const unsigned int max_divisions = divided_len * radix;
@@ -74,8 +73,6 @@ static unsigned int divide_and_remainder(const unsigned char * divided, const un
 		if(cur_divisions > max_divisions) {
 			THROW(0x6D16);
 		}
-		appendDebugInteger(divide_and_remainder_debug,'\x9C',divided_part,'\xC9');
-		appendDebugInteger(divide_and_remainder_debug,'\xAC',division_index,'\xCA');
 
 		// if the divided part is less than the divisor, add another digit.
 		// I.E: if you are dividing 31 by 4, and the divided part is 3, multiply 3 by 10 and add the 1.
@@ -98,19 +95,12 @@ static unsigned int divide_and_remainder(const unsigned char * divided, const un
 				THROW(0x6D23);
 			}
 			unsigned int dividend_part = divided_part / divisor;
-			appendDebugInteger(divide_and_remainder_debug,'\xBC',dividend_part,'\xCB');
-			appendDebugInteger(divide_and_remainder_debug,'\xCC',division_index,'\xCC');
-			appendDebugUnsignedCharArray(divide_and_remainder_debug,'\xCD',dividend,dividend_len,'\xDC');
 			*(dividend + (dividend_len-1)) = dividend_part;
-			appendDebugUnsignedCharArray(divide_and_remainder_debug,'\xDD',dividend,dividend_len,'\xDD');
 			if(dividend_part > divided_part) {
 				THROW(0x6D22);
 			}
-			appendDebugInteger(divide_and_remainder_debug,'\xDC',divided_part,'\xCD');
 			divided_part -= (dividend_part * divisor);
 		}
-		appendDebugInteger(divide_and_remainder_debug,'\xEC',divided_part,'\xCE');
-		appendDebugInteger(divide_and_remainder_debug,'\xFC',division_index,'\xCF');
 	}
 	return divided_part;
 }
@@ -182,10 +172,7 @@ static unsigned int encode_base_x(const char * alphabet, const unsigned int alph
 	unsigned char remainders[BASEX_DIVISION_BUFFER_SIZE];
 	os_memset(remainders,0x00,sizeof(remainders));
 
-	const bool trace_debug = false;
-
 	// if out_len is too big, log the actual length, and throw an error.
-	appendDebugInteger(trace_debug,'\x0A',out_len,'\xA0');
 	if(out_len > BASEX_DIVISION_BUFFER_SIZE) {
 		THROW(0x6D11);
 	}
@@ -198,24 +185,17 @@ static unsigned int encode_base_x(const char * alphabet, const unsigned int alph
 	int remainders_out_ix = out_len-1;
 
 	// if the input length is too big, log it and throw an error.
-	appendDebugInteger(trace_debug,'\x1A',in_len_raw,'\xA1');
 	if(in_len_raw > BASEX_DIVISION_BUFFER_SIZE) {
 		THROW(0x6D12);
 	}
-
-	appendDebugUnsignedCharArray(enable_debug,'\x2B',in,in_len_raw,'\xB2');
 
 	// make the first "divided" be the input.
 	os_memmove(divided, in, in_len_raw);
 
 	unsigned int working_len = remove_zeros(divided, in_len_raw);
 
-	appendDebugInteger(trace_debug,'\x3A',working_len,'\xA3');
-
 	const unsigned int divisor = alphabet_len;
 	const unsigned int radix = BASEX_DIVISION_RADIX;
-
-	appendDebugUnsignedCharArray(trace_debug,'\x4B',divided,working_len,'\xB4');
 
 	const unsigned int max_divisions = working_len * radix;
 	// const unsigned int max_divisions = 1;
@@ -223,9 +203,6 @@ static unsigned int encode_base_x(const char * alphabet, const unsigned int alph
 	bool empty_divided = dividedIsEmpty(divided,working_len);
 	while(!empty_divided) {
 		cur_divisions++;
-
-		appendDebugInteger(trace_debug,'\x5A',cur_divisions,'\xA5');
-		appendDebugUnsignedCharArray(enable_debug,'\x6B',divided,working_len,'\xB6');
 
 		if(cur_divisions > max_divisions) {
 			THROW(0x6D15);
@@ -237,8 +214,6 @@ static unsigned int encode_base_x(const char * alphabet, const unsigned int alph
 		                        divisor, radix,
 		                        enable_debug);
 
-		appendDebugInteger(trace_debug,'\x7A',remainder,'\xA7');
-
 		if(remainder >= divisor) {
 			THROW(0x6D21);
 		}
@@ -249,14 +224,9 @@ static unsigned int encode_base_x(const char * alphabet, const unsigned int alph
 		*(remainders_out + remainders_out_ix) = remainder;
 
 		remainders_out_ix--;
-		appendDebugUnsignedCharArray(enable_debug,'\x8B',
-		                             remainders_out + remainders_out_ix,
-		                             out_len - remainders_out_ix,'\xB8');
 
 		os_memmove(divided, dividend, working_len);
-		appendDebugUnsignedCharArray(enable_debug,'\xFB',divided,working_len,'\xBF');
 		working_len = remove_zeros(divided, working_len);
-		appendDebugUnsignedCharArray(enable_debug,'\xFC',divided,working_len,'\xCF');
 		os_memset(dividend,0x00,sizeof(dividend));
 
 		empty_divided = dividedIsEmpty(divided,working_len);

@@ -7,7 +7,7 @@
 static const char TXT_BLANK[] = "                 ";
 
 /** a period, for displaying the decimal point. */
-static const char TXT_PERIOD[] = ".";
+// static const char TXT_PERIOD[] = ".";
 
 /** Label when a public key has not been set yet */
 static const char NO_PUBLIC_KEY_0[] = "No Public Key";
@@ -34,10 +34,10 @@ void display_public_key(const unsigned char * public_key) {
 }
 
 /** parse the raw transaction in raw_tx and fill up the screens in tx_desc. */
-unsigned char display_tx_desc() {
+void display_tx_desc() {
 	unsigned int scr_ix = 0;
-	char temp_buffer[MAX_TX_TEXT_WIDTH];
-	unsigned int temp_buffer_len = 0;
+	//char temp_buffer[MAX_TX_TEXT_WIDTH];
+	//unsigned int temp_buffer_len = 0;
 
 	while(scr_ix < MAX_TX_TEXT_SCREENS) {
 		os_memmove(tx_desc[scr_ix][0], TXT_BLANK, sizeof(TXT_BLANK));
