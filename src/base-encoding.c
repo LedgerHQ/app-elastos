@@ -16,6 +16,13 @@ static const char BASE_32_ALPHABET[] = {
 	'I', 'J', 'K', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'W', 'X', 'Y', 'Z'
 };
 
+/** array of base58 alphabet letters */
+static const char BASE_58_ALPHABET[] = {
+	'1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P', 'Q',
+	'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v',
+	'w', 'x', 'y', 'z'
+};
+
 /** encodes in_length bytes from in into the given base, using the given alphabet. writes the converted bytes to out, stopping when it converts out_length bytes. */
 static unsigned int encode_base_x(const char * alphabet, const unsigned int alphabet_len,
                                   const void * in, const unsigned int in_length,
@@ -41,8 +48,14 @@ unsigned int encode_base_10(const void *in, const unsigned int in_length,
 unsigned int encode_base_32(const void *in, const unsigned int in_length,
                             char *out, const unsigned int out_length,
                             const bool enable_debug) {
-	return encode_base_x(BASE_32_ALPHABET, sizeof(BASE_32_ALPHABET), in, in_length, out, out_length,
-	                     enable_debug);
+	return encode_base_x(BASE_32_ALPHABET, sizeof(BASE_32_ALPHABET), in, in_length, out, out_length, enable_debug);
+}
+
+/** encodes in_length bytes from in into base-32, writes the converted bytes to out, stopping when it converts out_length bytes.  */
+unsigned int encode_base_58(const void *in, const unsigned int in_length,
+                            char *out, const unsigned int out_length,
+                            const bool enable_debug) {
+	return encode_base_x(BASE_58_ALPHABET, sizeof(BASE_58_ALPHABET), in, in_length, out, out_length, enable_debug);
 }
 
 /**
@@ -209,10 +222,10 @@ static unsigned int encode_base_x(const char * alphabet, const unsigned int alph
 		}
 
 		const unsigned int remainder =
-		  divide_and_remainder( divided,  working_len,
-		                        dividend, working_len,
-		                        divisor, radix,
-		                        enable_debug);
+		    divide_and_remainder( divided,  working_len,
+		                          dividend, working_len,
+		                          divisor, radix,
+		                          enable_debug);
 
 		if(remainder >= divisor) {
 			THROW(0x6D21);
