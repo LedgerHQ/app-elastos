@@ -1,0 +1,17 @@
+mnemonic:
+unhappy despair twin kitten satisfy axis skill initial express surround seat excess gossip blame session eternal essence memory shrimp girl bamboo viable float output
+
+seed:
+ce7a5f614c9726a56a2662ff09a94c05854c18a267760509422e12a661d47e4e5c7e718a64f20a94b243390e8dc0447174bf9537f60eeba0cade1c22ff79480e
+
+path:
+m/44'/2305'/0/0/0
+
+address:
+1Cq75tgwzeM7k1shKiqZZbmpQ9WJxuHoh5
+
+public key:
+036a82c74b8384726926e62b3687e49e6a3dcca23a9b1ce5eabf6f19aff8f8d0d9
+
+wallet:
+L5R5tKWz1s6s4nik6VLKJXuKJpkkoHRmuThCmmngAgcSpPKszQux
