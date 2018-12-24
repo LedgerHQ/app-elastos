@@ -81,6 +81,9 @@ unsigned char G_io_seproxyhal_spi_buffer[IO_SEPROXYHAL_BUFFER_SIZE_B];
 /** instruction to send back the base 10 encoded version of the value. */
 #define INS_GET_BASE_10_ENCODED 0x10
 
+/** instruction to send back the base 10 encoded version of the value. */
+#define INS_GET_BASE_58_ENCODED 0x20
+
 /** #### instructions end #### */
 
 /** some kind of event loop */
@@ -89,7 +92,7 @@ unsigned short io_exchange_al(unsigned char channel, unsigned short tx_len) {
 	case CHANNEL_KEYBOARD:
 		break;
 
-		// multiplexed io exchange over a SPI channel and TLV encapsulated protocol
+	// multiplexed io exchange over a SPI channel and TLV encapsulated protocol
 	case CHANNEL_SPI:
 		if (tx_len) {
 			io_seproxyhal_spi_send(G_io_apdu_buffer, tx_len);
@@ -130,188 +133,188 @@ static void elastos_main(void) {
 	// sure the io_event is called with a
 	// switch event, before the apdu is replied to the bootloader. This avoid
 	// APDU injection faults.
-	for (;;) {
+	for (;; ) {
 		volatile unsigned short sw = 0;
 
 		BEGIN_TRY
+		{
+			TRY
 			{
-				TRY
-					{
-						rx = tx;
-						// ensure no race in catch_other if io_exchange throws an error
-						tx = 0;
-						rx = io_exchange(CHANNEL_APDU | flags, rx);
-						flags = 0;
+				rx = tx;
+				// ensure no race in catch_other if io_exchange throws an error
+				tx = 0;
+				rx = io_exchange(CHANNEL_APDU | flags, rx);
+				flags = 0;
 
-						// no apdu received, well, reset the session, and reset the
-						// bootloader configuration
-						if (rx == 0) {
-							hashTainted = 1;
-							THROW(0x6982);
-						}
+				// no apdu received, well, reset the session, and reset the
+				// bootloader configuration
+				if (rx == 0) {
+					hashTainted = 1;
+					THROW(0x6982);
+				}
 
-						// if the buffer doesn't start with the magic byte, return an error.
-						if (G_io_apdu_buffer[0] != CLA) {
-							hashTainted = 1;
-							THROW(0x6E00);
-						}
+				// if the buffer doesn't start with the magic byte, return an error.
+				if (G_io_apdu_buffer[0] != CLA) {
+					hashTainted = 1;
+					THROW(0x6E00);
+				}
 
-						// check the second byte (0x01) for the instruction.
-						switch (G_io_apdu_buffer[1]) {
+				// check the second byte (0x01) for the instruction.
+				switch (G_io_apdu_buffer[1]) {
 
-						// we're getting a transaction to sign, in parts.
-						case INS_SIGN: {
-							Timer_Restart();
-							// check the third byte (0x02) for the instruction subtype.
-							if ((G_io_apdu_buffer[2] != P1_MORE) && (G_io_apdu_buffer[2] != P1_LAST)) {
-								hashTainted = 1;
-								THROW(0x6A86);
-							}
+				// we're getting a transaction to sign, in parts.
+				case INS_SIGN: {
+					Timer_Restart();
+					// check the third byte (0x02) for the instruction subtype.
+					if ((G_io_apdu_buffer[2] != P1_MORE) && (G_io_apdu_buffer[2] != P1_LAST)) {
+						hashTainted = 1;
+						THROW(0x6A86);
+					}
 
-							// if this is the first transaction part, reset the hash and all the other temporary variables.
-							if (hashTainted) {
-								cx_sha256_init(&hash);
-								hashTainted = 0;
-								raw_tx_ix = 0;
-								raw_tx_len = 0;
-							}
+					// if this is the first transaction part, reset the hash and all the other temporary variables.
+					if (hashTainted) {
+						cx_sha256_init(&hash);
+						hashTainted = 0;
+						raw_tx_ix = 0;
+						raw_tx_len = 0;
+					}
 
-							// move the contents of the buffer into raw_tx, and update raw_tx_ix to the end of the buffer, to be ready for the next part of the tx.
-							unsigned int len = get_apdu_buffer_length();
-							unsigned char * in = G_io_apdu_buffer + APDU_HEADER_LENGTH;
-							unsigned char * out = raw_tx + raw_tx_ix;
-							if (raw_tx_ix + len > MAX_TX_RAW_LENGTH) {
-								hashTainted = 1;
-								THROW(0x6D08);
-							}
-							os_memmove(out, in, len);
-							raw_tx_ix += len;
+					// move the contents of the buffer into raw_tx, and update raw_tx_ix to the end of the buffer, to be ready for the next part of the tx.
+					unsigned int len = get_apdu_buffer_length();
+					unsigned char * in = G_io_apdu_buffer + APDU_HEADER_LENGTH;
+					unsigned char * out = raw_tx + raw_tx_ix;
+					if (raw_tx_ix + len > MAX_TX_RAW_LENGTH) {
+						hashTainted = 1;
+						THROW(0x6D08);
+					}
+					os_memmove(out, in, len);
+					raw_tx_ix += len;
 
-							// set the screen to be the first screen.
-							curr_scr_ix = 0;
+					// set the screen to be the first screen.
+					curr_scr_ix = 0;
 
-							// set the buffer to end with a zero.
-							G_io_apdu_buffer[APDU_HEADER_LENGTH + len] = '\0';
+					// set the buffer to end with a zero.
+					G_io_apdu_buffer[APDU_HEADER_LENGTH + len] = '\0';
 
-							// if this is the last part of the transaction, parse the transaction into human readable text, and display it.
-							if (G_io_apdu_buffer[2] == P1_LAST) {
-								raw_tx_len = raw_tx_ix;
-								raw_tx_ix = 0;
+					// if this is the last part of the transaction, parse the transaction into human readable text, and display it.
+					if (G_io_apdu_buffer[2] == P1_LAST) {
+						raw_tx_len = raw_tx_ix;
+						raw_tx_ix = 0;
 
-								// parse the transaction into human readable text.
-								display_tx_desc();
+						// parse the transaction into human readable text.
+						display_tx_desc();
 
-								// display the UI, starting at the top screen which is "Sign Tx Now".
-								ui_top_sign();
-							}
+						// display the UI, starting at the top screen which is "Sign Tx Now".
+						ui_top_sign();
+					}
 
-							flags |= IO_ASYNCH_REPLY;
+					flags |= IO_ASYNCH_REPLY;
 
-							// if this is not the last part of the transaction, do not display the UI, and approve the partial transaction.
-							// this adds the TX to the hash.
-							if (G_io_apdu_buffer[2] == P1_MORE) {
-								io_seproxyhal_touch_approve(NULL);
-							}
-						}
-							break;
+					// if this is not the last part of the transaction, do not display the UI, and approve the partial transaction.
+					// this adds the TX to the hash.
+					if (G_io_apdu_buffer[2] == P1_MORE) {
+						io_seproxyhal_touch_approve(NULL);
+					}
+				}
+				break;
 
-							// we're asked for the public key.
-						case INS_GET_PUBLIC_KEY: {
-							Timer_Restart();
+				// we're asked for the public key.
+				case INS_GET_PUBLIC_KEY: {
+					Timer_Restart();
 
-							cx_ecfp_public_key_t publicKey;
-							cx_ecfp_private_key_t privateKey;
+					cx_ecfp_public_key_t publicKey;
+					cx_ecfp_private_key_t privateKey;
 
-							if (rx < APDU_HEADER_LENGTH + BIP44_BYTE_LENGTH) {
-								hashTainted = 1;
-								THROW(0x6D09);
-							}
+					if (rx < APDU_HEADER_LENGTH + BIP44_BYTE_LENGTH) {
+						hashTainted = 1;
+						THROW(0x6D09);
+					}
 
-							/** BIP44 path, used to derive the private key from the mnemonic by calling os_perso_derive_node_bip32. */
-							unsigned char * bip44_in = G_io_apdu_buffer + APDU_HEADER_LENGTH;
+					/** BIP44 path, used to derive the private key from the mnemonic by calling os_perso_derive_node_bip32. */
+					unsigned char * bip44_in = G_io_apdu_buffer + APDU_HEADER_LENGTH;
 
-							unsigned int bip44_path[BIP44_PATH_LEN];
-							uint32_t i;
-							for (i = 0; i < BIP44_PATH_LEN; i++) {
-								bip44_path[i] = (bip44_in[0] << 24) | (bip44_in[1] << 16) | (bip44_in[2] << 8) | (bip44_in[3]);
-								bip44_in += 4;
-							}
-							unsigned char privateKeyData[32];
-							os_perso_derive_node_bip32(CX_CURVE_256R1, bip44_path, BIP44_PATH_LEN, privateKeyData, NULL);
-							cx_ecdsa_init_private_key(CX_CURVE_256R1, privateKeyData, 32, &privateKey);
+					unsigned int bip44_path[BIP44_PATH_LEN];
+					uint32_t i;
+					for (i = 0; i < BIP44_PATH_LEN; i++) {
+						bip44_path[i] = (bip44_in[0] << 24) | (bip44_in[1] << 16) | (bip44_in[2] << 8) | (bip44_in[3]);
+						bip44_in += 4;
+					}
+					unsigned char privateKeyData[32];
+					os_perso_derive_node_bip32(CX_CURVE_256R1, bip44_path, BIP44_PATH_LEN, privateKeyData, NULL);
+					cx_ecdsa_init_private_key(CX_CURVE_256R1, privateKeyData, 32, &privateKey);
 
-							// generate the public key.
-							cx_ecdsa_init_public_key(CX_CURVE_256R1, NULL, 0, &publicKey);
-							cx_ecfp_generate_pair(CX_CURVE_256R1, &publicKey, &privateKey, 1);
+					// generate the public key.
+					cx_ecdsa_init_public_key(CX_CURVE_256R1, NULL, 0, &publicKey);
+					cx_ecfp_generate_pair(CX_CURVE_256R1, &publicKey, &privateKey, 1);
 
-							// push the public key onto the response buffer.
-							os_memmove(G_io_apdu_buffer, publicKey.W, 65);
-							tx = 65;
+					// push the public key onto the response buffer.
+					os_memmove(G_io_apdu_buffer, publicKey.W, 65);
+					tx = 65;
 
-							display_public_key(publicKey.W);
-							refresh_public_key_display();
+					display_public_key(publicKey.W);
+					refresh_public_key_display();
 
-							// return 0x9000 OK.
-							THROW(0x9000);
-						}
-							break;
+					// return 0x9000 OK.
+					THROW(0x9000);
+				}
+				break;
 
-							// we're asking for the signed public key.
-						case INS_GET_SIGNED_PUBLIC_KEY: {
-							Timer_Restart();
+				// we're asking for the signed public key.
+				case INS_GET_SIGNED_PUBLIC_KEY: {
+					Timer_Restart();
 
-							cx_ecfp_public_key_t publicKey;
-							cx_ecfp_private_key_t privateKey;
+					cx_ecfp_public_key_t publicKey;
+					cx_ecfp_private_key_t privateKey;
 
-							if (rx < APDU_HEADER_LENGTH + BIP44_BYTE_LENGTH) {
-								hashTainted = 1;
-								THROW(0x6D10);
-							}
+					if (rx < APDU_HEADER_LENGTH + BIP44_BYTE_LENGTH) {
+						hashTainted = 1;
+						THROW(0x6D10);
+					}
 
-							/** BIP44 path, used to derive the private key from the mnemonic by calling os_perso_derive_node_bip32. */
-							unsigned char * bip44_in = G_io_apdu_buffer + APDU_HEADER_LENGTH;
+					/** BIP44 path, used to derive the private key from the mnemonic by calling os_perso_derive_node_bip32. */
+					unsigned char * bip44_in = G_io_apdu_buffer + APDU_HEADER_LENGTH;
 
-							unsigned int bip44_path[BIP44_PATH_LEN];
-							uint32_t i;
-							for (i = 0; i < BIP44_PATH_LEN; i++) {
-								bip44_path[i] = (bip44_in[0] << 24) | (bip44_in[1] << 16) | (bip44_in[2] << 8) | (bip44_in[3]);
-								bip44_in += 4;
-							}
-							unsigned char privateKeyData[32];
-							os_perso_derive_node_bip32(CX_CURVE_256R1, bip44_path, BIP44_PATH_LEN, privateKeyData, NULL);
-							cx_ecdsa_init_private_key(CX_CURVE_256R1, privateKeyData, 32, &privateKey);
+					unsigned int bip44_path[BIP44_PATH_LEN];
+					uint32_t i;
+					for (i = 0; i < BIP44_PATH_LEN; i++) {
+						bip44_path[i] = (bip44_in[0] << 24) | (bip44_in[1] << 16) | (bip44_in[2] << 8) | (bip44_in[3]);
+						bip44_in += 4;
+					}
+					unsigned char privateKeyData[32];
+					os_perso_derive_node_bip32(CX_CURVE_256R1, bip44_path, BIP44_PATH_LEN, privateKeyData, NULL);
+					cx_ecdsa_init_private_key(CX_CURVE_256R1, privateKeyData, 32, &privateKey);
 
-							// generate the public key.
-							cx_ecdsa_init_public_key(CX_CURVE_256R1, NULL, 0, &publicKey);
-							cx_ecfp_generate_pair(CX_CURVE_256R1, &publicKey, &privateKey, 1);
+					// generate the public key.
+					cx_ecdsa_init_public_key(CX_CURVE_256R1, NULL, 0, &publicKey);
+					cx_ecfp_generate_pair(CX_CURVE_256R1, &publicKey, &privateKey, 1);
 
-							// push the public key onto the response buffer.
-							os_memmove(G_io_apdu_buffer, publicKey.W, 65);
-							tx = 65;
+					// push the public key onto the response buffer.
+					os_memmove(G_io_apdu_buffer, publicKey.W, 65);
+					tx = 65;
 
-							display_public_key(publicKey.W);
-							refresh_public_key_display();
+					display_public_key(publicKey.W);
+					refresh_public_key_display();
 
-							G_io_apdu_buffer[tx++] = 0xFF;
-							G_io_apdu_buffer[tx++] = 0xFF;
+					G_io_apdu_buffer[tx++] = 0xFF;
+					G_io_apdu_buffer[tx++] = 0xFF;
 
-							unsigned char result[32];
+					unsigned char result[32];
 
-							cx_sha256_t pubKeyHash;
-							cx_sha256_init(&pubKeyHash);
+					cx_sha256_t pubKeyHash;
+					cx_sha256_init(&pubKeyHash);
 
-							cx_hash(&pubKeyHash.header, CX_LAST, publicKey.W, 65, result, sizeof(result));
+					cx_hash(&pubKeyHash.header, CX_LAST, publicKey.W, 65, result, sizeof(result));
 
-    					unsigned int info = 0;
-							unsigned int max_sig_length = sizeof(G_io_apdu_buffer) - tx;
-							tx += cx_ecdsa_sign((void*) &privateKey, CX_RND_RFC6979 | CX_LAST, CX_SHA256, result, sizeof(result), G_io_apdu_buffer + tx, max_sig_length, &info);
+					unsigned int info = 0;
+					unsigned int max_sig_length = sizeof(G_io_apdu_buffer) - tx;
+					tx += cx_ecdsa_sign((void*) &privateKey, CX_RND_RFC6979 | CX_LAST, CX_SHA256, result, sizeof(result), G_io_apdu_buffer + tx, max_sig_length, &info);
 
-							// return 0x9000 OK.
-							THROW(0x9000);
-						}
-							break;
+					// return 0x9000 OK.
+					THROW(0x9000);
+				}
+				break;
 
-case INS_GET_BASE_10_ENCODED: {
+				case INS_GET_BASE_10_ENCODED: {
 					Timer_Restart();
 					unsigned int in_len = get_apdu_buffer_length();
 					unsigned char * in = G_io_apdu_buffer + APDU_HEADER_LENGTH;
@@ -341,41 +344,72 @@ case INS_GET_BASE_10_ENCODED: {
 				}
 				break;
 
-						case 0xFF: // return to dashboard
-							goto return_to_dashboard;
 
-							// we're asked to do an unknown command
-						default:
-							// return an error.
-							hashTainted = 1;
-							THROW(0x6D00);
-							break;
-						}
+				case INS_GET_BASE_58_ENCODED: {
+					Timer_Restart();
+					unsigned int in_len = get_apdu_buffer_length();
+					unsigned char * in = G_io_apdu_buffer + APDU_HEADER_LENGTH;
+					if(in_len >= 0xFF) {
+						G_io_apdu_buffer[tx++] = 0x0E;
+						G_io_apdu_buffer[tx++] = in_len >> 24;
+						G_io_apdu_buffer[tx++] = in_len >> 16;
+						G_io_apdu_buffer[tx++] = in_len >> 8;
+						G_io_apdu_buffer[tx++] = in_len;
+						G_io_apdu_buffer[tx++] = 0xE0;
+						THROW(0x6D17);
 					}
-					CATCH_OTHER(e)
-					{
-						switch (e & 0xF000) {
-						case 0x6000:
-						case 0x9000:
-							sw = e;
-							break;
-						default:
-							sw = 0x6800 | (e & 0x7FF);
-							break;
-						}
-						// Unexpected exception => report
-						G_io_apdu_buffer[tx] = sw >> 8;
-						G_io_apdu_buffer[tx + 1] = sw;
-						tx += 2;
-					}
-					FINALLY
-				{
+					char out[0x10];
+					os_memset(out,0x00,sizeof(out));
+					const unsigned int out_length = sizeof(out);
+					const bool enable_debug = DEBUG_OUT_ENABLED;
+					encode_base_58(in, in_len, out,out_length,enable_debug);
+					G_io_apdu_buffer[tx++] = 0xFF;
+					G_io_apdu_buffer[tx++] = 0xF0;
+					G_io_apdu_buffer[tx++] = 0x0F;
+					os_memmove(G_io_apdu_buffer + tx, out, out_length);
+					tx += out_length;
+					G_io_apdu_buffer[tx++] = 0xF0;
+					G_io_apdu_buffer[tx++] = 0x0F;
+					G_io_apdu_buffer[tx++] = 0xFF;
+					THROW(0x9000);
+				}
+				break;
+
+				case 0xFF:                                 // return to dashboard
+					goto return_to_dashboard;
+
+				// we're asked to do an unknown command
+				default:
+					// return an error.
+					hashTainted = 1;
+					THROW(0x6D00);
+					break;
 				}
 			}
-			END_TRY;
+			CATCH_OTHER(e)
+			{
+				switch (e & 0xF000) {
+				case 0x6000:
+				case 0x9000:
+					sw = e;
+					break;
+				default:
+					sw = 0x6800 | (e & 0x7FF);
+					break;
+				}
+				// Unexpected exception => report
+				G_io_apdu_buffer[tx] = sw >> 8;
+				G_io_apdu_buffer[tx + 1] = sw;
+				tx += 2;
+			}
+			FINALLY
+			{
+			}
+		}
+		END_TRY;
 	}
 
-	return_to_dashboard: return;
+return_to_dashboard: return;
 }
 
 /** display function */
@@ -395,7 +429,7 @@ unsigned char io_event(unsigned char channel) {
 		UX_FINGER_EVENT(G_io_seproxyhal_spi_buffer);
 		break;
 
-	case SEPROXYHAL_TAG_BUTTON_PUSH_EVENT: // for Nano S
+	case SEPROXYHAL_TAG_BUTTON_PUSH_EVENT:     // for Nano S
 		Timer_Restart();
 		UX_BUTTON_PUSH_EVENT(G_io_seproxyhal_spi_buffer);
 		break;
@@ -424,7 +458,7 @@ unsigned char io_event(unsigned char channel) {
 		}
 		break;
 
-		// unknown events are acknowledged
+	// unknown events are acknowledged
 	default:
 		UX_DEFAULT_EVENT();
 		break;
@@ -442,7 +476,7 @@ unsigned char io_event(unsigned char channel) {
 /** boot up the app and intialize it */
 __attribute__((section(".boot"))) int main(void) {
 	// exit critical section
-	__asm volatile("cpsie i");
+	__asm volatile ("cpsie i");
 
 	curr_scr_ix = 0;
 	max_scr_ix = 0;
@@ -456,41 +490,41 @@ __attribute__((section(".boot"))) int main(void) {
 	UX_INIT();
 
 	BEGIN_TRY
+	{
+		TRY
 		{
-			TRY
-				{
-					io_seproxyhal_init();
+			io_seproxyhal_init();
 
 #ifdef LISTEN_BLE
-					if (os_seph_features() &
-							SEPROXYHAL_TAG_SESSION_START_EVENT_FEATURE_BLE) {
-						BLE_power(0, NULL);
-						// restart IOs
-						BLE_power(1, NULL);
-					}
+			if (os_seph_features() &
+			    SEPROXYHAL_TAG_SESSION_START_EVENT_FEATURE_BLE) {
+				BLE_power(0, NULL);
+				// restart IOs
+				BLE_power(1, NULL);
+			}
 #endif
 
-					USB_power(0);
-					USB_power(1);
+			USB_power(0);
+			USB_power(1);
 
-					// init the public key display to "no public key".
-					display_no_public_key();
+			// init the public key display to "no public key".
+			display_no_public_key();
 
-					// show idle screen.
-					ui_idle();
+			// show idle screen.
+			ui_idle();
 
-					// set timer
-					Timer_Set();
+			// set timer
+			Timer_Set();
 
-					// run main event loop.
-					elastos_main();
-				}
-				CATCH_OTHER(e)
-				{
-				}
-				FINALLY
-			{
-			}
+			// run main event loop.
+			elastos_main();
 		}
-		END_TRY;
+		CATCH_OTHER(e)
+		{
+		}
+		FINALLY
+		{
+		}
+	}
+	END_TRY;
 }
