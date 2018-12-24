@@ -34,32 +34,35 @@ dongle = getDongle(True)
 print("STARTED base58[1]")
 # buggy for 2560-2569, 5120-5130, 7680-7690
 # for value in range(2559, 2570):
-for value in range(0, 70000):
+for value in range(0, 1000):
     print("STARTED base58[1] " + str(value))
     valueHex = format(value, '06X')
-    valueStr = base58.b58encode(binascii.unhexlify(valueHex)).decode('utf-8')
-    print("INTERIM base58[1] valueHex " + valueHex)
-    print("INTERIM base58[1] valueStr " + valueStr)
+    # valueStr = base58.b58encode(binascii.unhexlify(valueHex)).decode('utf-8')
+    # print("INTERIM base58[1] valueHex " + valueHex)
+    # print("INTERIM base58[1] valueStr " + valueStr)
     inputbase58 = bytes(bytearray.fromhex(
-        "80108000"
+        "80588000"
         # length
-        + "04"
+        + "03"
         # data
         + valueHex
     ))
     print("INTERIM base58[1] " + inputbase58.hex().upper())
     outputbase58 = dongle.exchange(inputbase58)
-    actualbase58 = outputbase58[0x03:0x13].decode("utf-8")
-    expectbase58 = valueStr
+    print("INTERIM base58[2] " + outputbase58.hex().upper())
+    interimbase58 = outputbase58[0x03:0x13]
+    print("INTERIM base58[3] " + interimbase58.hex().upper())
+    actualbase58 = interimbase58.decode("utf-8")
+    # expectbase58 = valueStr
     print("ACTUAL base58[1] " + actualbase58)
-    print("EXPECT base58[1] " + expectbase58)
+    # print("EXPECT base58[1] " + expectbase58)
 
-    match = "yes" if (actualbase58 == expectbase58) else "no"
-    print("MATCH? base58[1] " + match)
+    # match = "yes" if (actualbase58 == expectbase58) else "no"
+    # print("MATCH? base58[1] " + match)
 
-    if (match == "no"):
-        raise ValueError('expected %s actual %s' %
-                         (expectbase58, actualbase58))
+    # if (match == "no"):
+        # raise ValueError('expected %s actual %s' %
+                         # (expectbase58, actualbase58))
 print("SUCCESS base58[1]")
 
 # sys.exit(1)

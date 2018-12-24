@@ -23,6 +23,7 @@
 #include "elastos.h"
 #include "bagl.h"
 #include "base-encoding.h"
+#include "btchip_base58.h"
 
 #define DEBUG_OUT_ENABLED false
 
@@ -81,8 +82,8 @@ unsigned char G_io_seproxyhal_spi_buffer[IO_SEPROXYHAL_BUFFER_SIZE_B];
 /** instruction to send back the base 10 encoded version of the value. */
 #define INS_GET_BASE_10_ENCODED 0x10
 
-/** instruction to send back the base 10 encoded version of the value. */
-#define INS_GET_BASE_58_ENCODED 0x20
+/** instruction to send back the base 58 encoded version of the value. */
+#define INS_GET_BASE_58_ENCODED 0x58
 
 /** #### instructions end #### */
 
@@ -358,16 +359,24 @@ static void elastos_main(void) {
 						G_io_apdu_buffer[tx++] = 0xE0;
 						THROW(0x6D17);
 					}
-					char out[0x10];
+					unsigned char out[0x10];
+					// char out[0x10];
 					os_memset(out,0x00,sizeof(out));
-					const unsigned int out_length = sizeof(out);
-					const bool enable_debug = DEBUG_OUT_ENABLED;
-					encode_base_58(in, in_len, out,out_length,enable_debug);
+					// encode_base_58(in, in_len, out,out_length,enable_debug);
+					// const unsigned int out_length = sizeof(out);
+					// os_memmove(G_io_apdu_buffer + tx, out, out_length);
+					unsigned int outlen;
+					btchip_encode_base58(in, in_len, out,  &outlen);
 					G_io_apdu_buffer[tx++] = 0xFF;
 					G_io_apdu_buffer[tx++] = 0xF0;
 					G_io_apdu_buffer[tx++] = 0x0F;
-					os_memmove(G_io_apdu_buffer + tx, out, out_length);
-					tx += out_length;
+					// for(unsigned int pad_ix = outlen; pad_ix < sizeof(out); pad_ix++) {
+					// 	// add spaces in the beginning.
+					// 	os_memmove(G_io_apdu_buffer + tx, 0x32, 1);
+					// 	tx++;
+					// }
+					os_memmove(G_io_apdu_buffer + tx, out, sizeof(out));
+					tx += sizeof(out);
 					G_io_apdu_buffer[tx++] = 0xF0;
 					G_io_apdu_buffer[tx++] = 0x0F;
 					G_io_apdu_buffer[tx++] = 0xFF;
@@ -375,7 +384,7 @@ static void elastos_main(void) {
 				}
 				break;
 
-				case 0xFF:                                 // return to dashboard
+				case 0xFF:                                                                 // return to dashboard
 					goto return_to_dashboard;
 
 				// we're asked to do an unknown command
@@ -429,7 +438,7 @@ unsigned char io_event(unsigned char channel) {
 		UX_FINGER_EVENT(G_io_seproxyhal_spi_buffer);
 		break;
 
-	case SEPROXYHAL_TAG_BUTTON_PUSH_EVENT:     // for Nano S
+	case SEPROXYHAL_TAG_BUTTON_PUSH_EVENT:             // for Nano S
 		Timer_Restart();
 		UX_BUTTON_PUSH_EVENT(G_io_seproxyhal_spi_buffer);
 		break;

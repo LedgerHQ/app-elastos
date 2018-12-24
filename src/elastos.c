@@ -178,7 +178,7 @@ void display_public_key(const unsigned char * public_key) {
 	char * address_base58_0 = address_base58;
 	char * address_base58_1 = address_base58 + address_base58_len_0;
 	char * address_base58_2 = address_base58 + address_base58_len_0 + address_base58_len_1;
-	// to_address(address_base58, ADDRESS_BASE58_LEN, script_hash);
+	to_address(address_base58, ADDRESS_BASE58_LEN, script_hash);
 
 	os_memmove(current_public_key[0], address_base58_0, address_base58_len_0);
 	os_memmove(current_public_key[1], address_base58_1, address_base58_len_1);
