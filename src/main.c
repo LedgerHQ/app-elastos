@@ -23,7 +23,7 @@
 #include "elastos.h"
 #include "bagl.h"
 #include "base-encoding.h"
-#include "btchip_base58.h"
+// #include "btchip_base58.h"
 
 #define DEBUG_OUT_ENABLED false
 

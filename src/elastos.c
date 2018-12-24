@@ -51,7 +51,7 @@ void public_key_hash160(unsigned char * in, unsigned short inlen, unsigned char 
 	cx_sha256_init(&u.shasha);
 	cx_hash(&u.shasha.header, CX_LAST, in, inlen, buffer, sizeof(buffer));
 	cx_ripemd160_init(&u.riprip);
-	cx_hash(&u.riprip.header, CX_LAST, buffer, sizeof(buffer), out, outlen);
+	cx_hash(&u.riprip.header, CX_LAST, buffer, 32, out, outlen);
 }
 
 static void to_address(char * dest, unsigned int dest_len, const unsigned char * script_hash) {
@@ -63,10 +63,8 @@ static void to_address(char * dest, unsigned int dest_len, const unsigned char *
 	address[0] = ADDRESS_VERSION;
 	os_memmove(address + 1, script_hash, SCRIPT_HASH_LEN);
 
-	// do a sha256 hash of the address twice.
-	cx_hash_sha256(script_hash,SCRIPT_HASH_LEN,address_hash_result_0,sizeof(address_hash_result_0));
-
-	cx_hash_sha256(address_hash_result_0,sizeof(address_hash_result_0),address_hash_result_1,sizeof(address_hash_result_1));
+	cx_hash_sha256(script_hash, SCRIPT_HASH_LEN,address_hash_result_0,SHA256_HASH_LEN);
+	cx_hash_sha256(address_hash_result_0,SHA256_HASH_LEN,address_hash_result_1,SHA256_HASH_LEN);
 
 	// add the first bytes of the hash as a checksum at the end of the address.
 	os_memmove(address + 1 + SCRIPT_HASH_LEN, address_hash_result_1, SCRIPT_HASH_CHECKSUM_LEN);
