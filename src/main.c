@@ -76,6 +76,9 @@ unsigned char G_io_seproxyhal_spi_buffer[IO_SEPROXYHAL_BUFFER_SIZE_B];
 /** instruction to send back the public key. */
 #define INS_GET_PUBLIC_KEY 0x04
 
+/** instruction to send back the public key verification script. */
+#define INS_GET_VERIFICATION_SCRIPT 0x05
+
 /** instruction to send back the public key, and a signature of the private key signing the public key. */
 #define INS_GET_SIGNED_PUBLIC_KEY 0x08
 
@@ -219,7 +222,8 @@ static void elastos_main(void) {
 				}
 				break;
 
-				// we're asked for the public key.
+				// we're asked for the public key, or the verification script.
+				case INS_GET_VERIFICATION_SCRIPT:
 				case INS_GET_PUBLIC_KEY: {
 					Timer_Restart();
 
@@ -248,13 +252,18 @@ static void elastos_main(void) {
 					cx_ecdsa_init_public_key(CX_CURVE_256R1, NULL, 0, &publicKey);
 					cx_ecfp_generate_pair(CX_CURVE_256R1, &publicKey, &privateKey, 1);
 
-					// push the public key onto the response buffer.
-					os_memmove(G_io_apdu_buffer, publicKey.W, 65);
-					tx = 65;
-
 					display_public_key(publicKey.W);
 					refresh_public_key_display();
 
+					if(G_io_apdu_buffer[1] == INS_GET_PUBLIC_KEY) {
+						// push the public key onto the response buffer.
+						os_memmove(G_io_apdu_buffer, publicKey.W, 65);
+						tx = 65;
+					}
+					if(G_io_apdu_buffer[1] == INS_GET_VERIFICATION_SCRIPT) {
+						os_memmove(G_io_apdu_buffer, verification_script, sizeof(verification_script));
+						tx = sizeof(verification_script);
+					}
 					// return 0x9000 OK.
 					THROW(0x9000);
 				}
@@ -360,7 +369,7 @@ static void elastos_main(void) {
 						THROW(0x6D17);
 					}
 					// unsigned char out[0x10];
-					char out[0x10];
+					char out[0x23];
 					os_memset(out,0x00,sizeof(out));
 					const unsigned int out_length = sizeof(out);
 					const bool enable_debug = DEBUG_OUT_ENABLED;

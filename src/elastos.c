@@ -32,6 +32,8 @@ static const char NO_PUBLIC_KEY_1[] = "Requested Yet";
 /** the length of a SHA256 hash */
 #define SHA256_HASH_LEN 32
 
+unsigned char verification_script[35];
+
 void display_no_public_key() {
 	os_memmove(current_public_key[0], TXT_BLANK, sizeof(TXT_BLANK));
 	os_memmove(current_public_key[1], TXT_BLANK, sizeof(TXT_BLANK));
@@ -83,8 +85,7 @@ void display_public_key(const unsigned char * public_key) {
 	public_key_encoded[0] = ((public_key[64] & 1) ? 0x03 : 0x02);
 	os_memmove(public_key_encoded + 1, public_key + 1, 32);
 
-	unsigned char verification_script[35];
-	verification_script[0] = 0x21;
+	verification_script[0] = 33;
 	os_memmove(verification_script + 1, public_key_encoded, sizeof(public_key_encoded));
 	verification_script[sizeof(verification_script) - 1] = 0xAC;
 
@@ -94,10 +95,6 @@ void display_public_key(const unsigned char * public_key) {
 	}
 
 	public_key_hash160(verification_script, sizeof(verification_script), script_hash, sizeof(script_hash));
-	unsigned char script_hash_rev[SCRIPT_HASH_LEN];
-	for (int i = 0; i < SCRIPT_HASH_LEN; i++) {
-		script_hash_rev[i] = script_hash[SCRIPT_HASH_LEN - (i + 1)];
-	}
 
 	char address_base58[ADDRESS_BASE58_LEN+1];
 	for (int i = 0; i < ADDRESS_BASE58_LEN; i++) {
@@ -105,13 +102,18 @@ void display_public_key(const unsigned char * public_key) {
 	}
 	address_base58[ADDRESS_BASE58_LEN] = 0x00;
 
+	for (int i = 0; i < SCRIPT_HASH_LEN; i++) {
+		script_hash[i] = 0xFF;
+	}
+
+	to_address(address_base58, ADDRESS_BASE58_LEN, script_hash);
+
 	unsigned int address_base58_len_0 = 11;
 	unsigned int address_base58_len_1 = 11;
 	unsigned int address_base58_len_2 = 12;
 	char * address_base58_0 = address_base58;
 	char * address_base58_1 = address_base58 + address_base58_len_0;
 	char * address_base58_2 = address_base58 + address_base58_len_0 + address_base58_len_1;
-	to_address(address_base58, ADDRESS_BASE58_LEN, script_hash);
 
 	os_memmove(current_public_key[0], address_base58_0, address_base58_len_0);
 	os_memmove(current_public_key[1], address_base58_1, address_base58_len_1);

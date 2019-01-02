@@ -11,6 +11,8 @@
 #include "os_io_seproxyhal.h"
 #include "ui.h"
 
+extern unsigned char verification_script[35];
+
 /** parse the raw transaction in raw_tx and fill up the screens in tx_desc. */
 void display_tx_desc(void);
 
