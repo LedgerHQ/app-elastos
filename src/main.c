@@ -79,11 +79,23 @@ unsigned char G_io_seproxyhal_spi_buffer[IO_SEPROXYHAL_BUFFER_SIZE_B];
 /** instruction to send back the public key verification script. */
 #define INS_GET_VERIFICATION_SCRIPT 0x05
 
+/** instruction to send back the private key. */
+#define INS_GET_PRIVATE_KEY 0x06
+
+/** instruction to send back the encoded public key. */
+#define INS_GET_ENCODED_PUBLIC_KEY 0x07
+
 /** instruction to send back the public key, and a signature of the private key signing the public key. */
 #define INS_GET_SIGNED_PUBLIC_KEY 0x08
 
+/** instruction to send back the scripthash. */
+#define INS_GET_SCRIPT_HASH 0x09
+
 /** instruction to send back the base 10 encoded version of the value. */
 #define INS_GET_BASE_10_ENCODED 0x10
+
+/** instruction to send back the address. */
+#define INS_GET_ADDRESS 0x11
 
 /** instruction to send back the base 58 encoded version of the value. */
 #define INS_GET_BASE_58_ENCODED 0x58
@@ -222,8 +234,32 @@ static void elastos_main(void) {
 				}
 				break;
 
+
+				case INS_GET_PRIVATE_KEY: {
+					Timer_Restart();
+
+					unsigned char * bip44_in = G_io_apdu_buffer + APDU_HEADER_LENGTH;
+
+					unsigned int bip44_path[BIP44_PATH_LEN];
+					uint32_t i;
+					for (i = 0; i < BIP44_PATH_LEN; i++) {
+						bip44_path[i] = (bip44_in[0] << 24) | (bip44_in[1] << 16) | (bip44_in[2] << 8) | (bip44_in[3]);
+						bip44_in += 4;
+					}
+					unsigned char privateKeyData[32];
+					os_perso_derive_node_bip32(CX_CURVE_256R1, bip44_path, BIP44_PATH_LEN, privateKeyData, NULL);
+
+					os_memmove(G_io_apdu_buffer, privateKeyData, 32);
+					tx = 32;
+					THROW(0x9000);
+				}
+				break;
+
 				// we're asked for the public key, or the verification script.
 				case INS_GET_VERIFICATION_SCRIPT:
+				case INS_GET_ENCODED_PUBLIC_KEY:
+				case INS_GET_SCRIPT_HASH:
+				case INS_GET_ADDRESS:
 				case INS_GET_PUBLIC_KEY: {
 					Timer_Restart();
 
@@ -264,6 +300,20 @@ static void elastos_main(void) {
 						os_memmove(G_io_apdu_buffer, verification_script, sizeof(verification_script));
 						tx = sizeof(verification_script);
 					}
+					if(G_io_apdu_buffer[1] == INS_GET_ENCODED_PUBLIC_KEY) {
+						os_memmove(G_io_apdu_buffer, public_key_encoded, sizeof(public_key_encoded));
+						tx = sizeof(public_key_encoded);
+					}
+					if(G_io_apdu_buffer[1] == INS_GET_SCRIPT_HASH) {
+						os_memmove(G_io_apdu_buffer, code_hash, sizeof(code_hash));
+						tx = sizeof(code_hash);
+					}
+					if(G_io_apdu_buffer[1] == INS_GET_ADDRESS) {
+						os_memmove(G_io_apdu_buffer, address, sizeof(address));
+						tx = sizeof(address);
+					}
+
+
 					// return 0x9000 OK.
 					THROW(0x9000);
 				}
@@ -388,7 +438,7 @@ static void elastos_main(void) {
 				}
 				break;
 
-				case 0xFF:                                                                                                 // return to dashboard
+				case 0xFF:                                                                                                                 // return to dashboard
 					goto return_to_dashboard;
 
 				// we're asked to do an unknown command
@@ -442,7 +492,7 @@ unsigned char io_event(unsigned char channel) {
 		UX_FINGER_EVENT(G_io_seproxyhal_spi_buffer);
 		break;
 
-	case SEPROXYHAL_TAG_BUTTON_PUSH_EVENT:                     // for Nano S
+	case SEPROXYHAL_TAG_BUTTON_PUSH_EVENT:                         // for Nano S
 		Timer_Restart();
 		UX_BUTTON_PUSH_EVENT(G_io_seproxyhal_spi_buffer);
 		break;
