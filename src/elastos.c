@@ -36,7 +36,7 @@ void display_no_public_key() {
 void public_key_hash160(unsigned char * in, unsigned short inlen, unsigned char *out, unsigned short outlen) {
 	cx_sha256_t shasha;
 	cx_ripemd160_t riprip;
-	unsigned char buffer[32];
+	unsigned char buffer[SHA256_HASH_LEN];
 	cx_sha256_init(&shasha);
 	cx_hash(&shasha.header, CX_LAST, in, inlen, buffer, sizeof(buffer));
 	cx_ripemd160_init(&riprip);

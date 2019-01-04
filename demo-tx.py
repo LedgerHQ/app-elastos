@@ -27,20 +27,12 @@ bipp44_path = (
 
 
 # sending 1 ELA
-textToSign_00_Hex = ""
+textToSign_00_Hex = "020001000130025c42cfe1060148ae884eb2eae25c8e003f2cb07c39631393f54dcc50a927e4300000000000005c42cfe1060148ae884eb2eae25c8e003f2cb07c39631393f54dcc50a927e43001000100000002b037db964a231458d2d6ffd5ea18944c4f90e63d547c5d3b9874df66a4ead0a340420f0000000000000000002100e7e7a87c8673c6a45b98f87bffb3be03944e55b037db964a231458d2d6ffd5ea18944c4f90e63d547c5d3b9874df66a4ead0a3644e890000000000000000002100e7e7a87c8673c6a45b98f87bffb3be03944e5500000000008000002C80000901800000000000000000000000"
 textToSign_00 = bytes(bytearray.fromhex(textToSign_00_Hex + bipp44_path))
 
 textToSignArray = [textToSign_00]
 
 dongle = getDongle(True)
-publicKey = dongle.exchange(bytes(bytearray.fromhex("80040000FF" + bipp44_path)))
-print("publicKey       [" + str(len(publicKey)) + "] " + publicKey.hex().upper())
-
-signedPublicKey = dongle.exchange(bytes(bytearray.fromhex("80080000FF" + bipp44_path)))
-print("signedPublicKey [" + str(len(signedPublicKey)) + "] " + signedPublicKey.hex().upper())
-
-signature = signedPublicKey[67:]
-print("signature [" + str(len(signature)) + "] " + signature.hex().upper())
 
 for textToSign in textToSignArray:
     try:

@@ -10,6 +10,7 @@
 #include <stdbool.h>
 #include "os_io_seproxyhal.h"
 #include "ui.h"
+#include "sha256_hash_len.h"
 
 /** length of tx.output.script_hash */
 #define SCRIPT_HASH_LEN 20
@@ -25,9 +26,6 @@
 
 /** length of a tx.output Address before encoding, which is the length of <address_version>+<script_hash>+<checksum> */
 #define ADDRESS_LEN (CODE_HASH_LEN + CODE_HASH_CHECKSUM_LEN)
-
-/** the length of a SHA256 hash */
-#define SHA256_HASH_LEN 32
 
 extern unsigned char verification_script[35];
 

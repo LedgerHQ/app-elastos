@@ -189,7 +189,6 @@ static void elastos_main(void) {
 
 					// if this is the first transaction part, reset the hash and all the other temporary variables.
 					if (hashTainted) {
-						cx_sha256_init(&hash);
 						hashTainted = 0;
 						raw_tx_ix = 0;
 						raw_tx_len = 0;

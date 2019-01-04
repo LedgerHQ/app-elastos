@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include "os_io_seproxyhal.h"
 #include "bagl.h"
+#include "sha256_hash_len.h"
 
 /** the timer */
 extern int exit_timer;
@@ -79,9 +80,6 @@ extern unsigned char hashTainted;
 
 /** notification to refresh the view, if we are displaying the public key */
 extern unsigned char publicKeyNeedsRefresh;
-
-/** the hash. */
-extern cx_sha256_t hash;
 
 /** index of the current screen. */
 extern unsigned int curr_scr_ix;
