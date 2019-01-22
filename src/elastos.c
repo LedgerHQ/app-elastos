@@ -365,9 +365,8 @@ void display_tx_desc() {
 		// display the value
 		if (scr_ix < MAX_TX_TEXT_SCREENS) {
 			os_memset(tx_desc[scr_ix], '\0', CURR_TX_DESC_LEN);
-			to_base10_100m(tx_desc[scr_ix][1], value, MAX_TX_TEXT_WIDTH);
 			os_memmove(tx_desc[scr_ix][0], TXT_ASSET_ELA, sizeof(TXT_ASSET_ELA));
-			os_memmove(tx_desc[scr_ix][1], TXT_BLANK, sizeof(TXT_BLANK));
+			to_base10_100m(tx_desc[scr_ix][1], value, MAX_TX_TEXT_WIDTH);
 			os_memmove(tx_desc[scr_ix][2], TXT_BLANK, sizeof(TXT_BLANK));
 			scr_ix++;
 		}
