@@ -75,31 +75,6 @@ unsigned char G_io_seproxyhal_spi_buffer[IO_SEPROXYHAL_BUFFER_SIZE_B];
 
 /** instruction to send back the public key. */
 #define INS_GET_PUBLIC_KEY 0x04
-
-/** instruction to send back the public key verification script. */
-#define INS_GET_VERIFICATION_SCRIPT 0x05
-
-/** instruction to send back the private key. */
-#define INS_GET_PRIVATE_KEY 0x06
-
-/** instruction to send back the encoded public key. */
-#define INS_GET_ENCODED_PUBLIC_KEY 0x07
-
-/** instruction to send back the public key, and a signature of the private key signing the public key. */
-#define INS_GET_SIGNED_PUBLIC_KEY 0x08
-
-/** instruction to send back the scripthash. */
-#define INS_GET_SCRIPT_HASH 0x09
-
-/** instruction to send back the base 10 encoded version of the value. */
-#define INS_GET_BASE_10_ENCODED 0x10
-
-/** instruction to send back the address. */
-#define INS_GET_ADDRESS 0x11
-
-/** instruction to send back the base 58 encoded version of the value. */
-#define INS_GET_BASE_58_ENCODED 0x58
-
 /** #### instructions end #### */
 
 /** some kind of event loop */
@@ -233,32 +208,7 @@ static void elastos_main(void) {
 				}
 				break;
 
-
-				case INS_GET_PRIVATE_KEY: {
-					Timer_Restart();
-
-					unsigned char * bip44_in = G_io_apdu_buffer + APDU_HEADER_LENGTH;
-
-					unsigned int bip44_path[BIP44_PATH_LEN];
-					uint32_t i;
-					for (i = 0; i < BIP44_PATH_LEN; i++) {
-						bip44_path[i] = (bip44_in[0] << 24) | (bip44_in[1] << 16) | (bip44_in[2] << 8) | (bip44_in[3]);
-						bip44_in += 4;
-					}
-					unsigned char privateKeyData[32];
-					os_perso_derive_node_bip32(CX_CURVE_256R1, bip44_path, BIP44_PATH_LEN, privateKeyData, NULL);
-
-					os_memmove(G_io_apdu_buffer, privateKeyData, 32);
-					tx = 32;
-					THROW(0x9000);
-				}
-				break;
-
 				// we're asked for the public key, or the verification script.
-				case INS_GET_VERIFICATION_SCRIPT:
-				case INS_GET_ENCODED_PUBLIC_KEY:
-				case INS_GET_SCRIPT_HASH:
-				case INS_GET_ADDRESS:
 				case INS_GET_PUBLIC_KEY: {
 					Timer_Restart();
 
@@ -295,144 +245,8 @@ static void elastos_main(void) {
 						os_memmove(G_io_apdu_buffer, publicKey.W, 65);
 						tx = 65;
 					}
-					if(G_io_apdu_buffer[1] == INS_GET_VERIFICATION_SCRIPT) {
-						os_memmove(G_io_apdu_buffer, verification_script, sizeof(verification_script));
-						tx = sizeof(verification_script);
-					}
-					if(G_io_apdu_buffer[1] == INS_GET_ENCODED_PUBLIC_KEY) {
-						os_memmove(G_io_apdu_buffer, public_key_encoded, sizeof(public_key_encoded));
-						tx = sizeof(public_key_encoded);
-					}
-					if(G_io_apdu_buffer[1] == INS_GET_SCRIPT_HASH) {
-						os_memmove(G_io_apdu_buffer, code_hash, sizeof(code_hash));
-						tx = sizeof(code_hash);
-					}
-					if(G_io_apdu_buffer[1] == INS_GET_ADDRESS) {
-						os_memmove(G_io_apdu_buffer, address, sizeof(address));
-						tx = sizeof(address);
-					}
-
 
 					// return 0x9000 OK.
-					THROW(0x9000);
-				}
-				break;
-
-				// we're asking for the signed public key.
-				case INS_GET_SIGNED_PUBLIC_KEY: {
-					Timer_Restart();
-
-					cx_ecfp_public_key_t publicKey;
-					cx_ecfp_private_key_t privateKey;
-
-					if (rx < APDU_HEADER_LENGTH + BIP44_BYTE_LENGTH) {
-						hashTainted = 1;
-						THROW(0x6D10);
-					}
-
-					/** BIP44 path, used to derive the private key from the mnemonic by calling os_perso_derive_node_bip32. */
-					unsigned char * bip44_in = G_io_apdu_buffer + APDU_HEADER_LENGTH;
-
-					unsigned int bip44_path[BIP44_PATH_LEN];
-					uint32_t i;
-					for (i = 0; i < BIP44_PATH_LEN; i++) {
-						bip44_path[i] = (bip44_in[0] << 24) | (bip44_in[1] << 16) | (bip44_in[2] << 8) | (bip44_in[3]);
-						bip44_in += 4;
-					}
-					unsigned char privateKeyData[32];
-					os_perso_derive_node_bip32(CX_CURVE_256R1, bip44_path, BIP44_PATH_LEN, privateKeyData, NULL);
-					cx_ecdsa_init_private_key(CX_CURVE_256R1, privateKeyData, 32, &privateKey);
-
-					// generate the public key.
-					cx_ecdsa_init_public_key(CX_CURVE_256R1, NULL, 0, &publicKey);
-					cx_ecfp_generate_pair(CX_CURVE_256R1, &publicKey, &privateKey, 1);
-
-					// push the public key onto the response buffer.
-					os_memmove(G_io_apdu_buffer, publicKey.W, 65);
-					tx = 65;
-
-					display_public_key(publicKey.W);
-					refresh_public_key_display();
-
-					G_io_apdu_buffer[tx++] = 0xFF;
-					G_io_apdu_buffer[tx++] = 0xFF;
-
-					unsigned char result[32];
-
-					cx_sha256_t pubKeyHash;
-					cx_sha256_init(&pubKeyHash);
-
-					cx_hash(&pubKeyHash.header, CX_LAST, publicKey.W, 65, result, sizeof(result));
-
-					unsigned int info = 0;
-					unsigned int max_sig_length = sizeof(G_io_apdu_buffer) - tx;
-					tx += cx_ecdsa_sign((void*) &privateKey, CX_RND_RFC6979 | CX_LAST, CX_SHA256, result, sizeof(result), G_io_apdu_buffer + tx, max_sig_length, &info);
-
-					// return 0x9000 OK.
-					THROW(0x9000);
-				}
-				break;
-
-				case INS_GET_BASE_10_ENCODED: {
-					Timer_Restart();
-					unsigned int in_len = get_apdu_buffer_length();
-					unsigned char * in = G_io_apdu_buffer + APDU_HEADER_LENGTH;
-					if(in_len >= 0xFF) {
-						G_io_apdu_buffer[tx++] = 0x0E;
-						G_io_apdu_buffer[tx++] = in_len >> 24;
-						G_io_apdu_buffer[tx++] = in_len >> 16;
-						G_io_apdu_buffer[tx++] = in_len >> 8;
-						G_io_apdu_buffer[tx++] = in_len;
-						G_io_apdu_buffer[tx++] = 0xE0;
-						THROW(0x6D17);
-					}
-					char out[0x10];
-					os_memset(out,0x00,sizeof(out));
-					const unsigned int out_length = sizeof(out);
-					const bool enable_debug = DEBUG_OUT_ENABLED;
-					encode_base_10(in, in_len, out,out_length,enable_debug);
-					G_io_apdu_buffer[tx++] = 0xFF;
-					G_io_apdu_buffer[tx++] = 0xF0;
-					G_io_apdu_buffer[tx++] = 0x0F;
-					os_memmove(G_io_apdu_buffer + tx, out, out_length);
-					tx += out_length;
-					G_io_apdu_buffer[tx++] = 0xF0;
-					G_io_apdu_buffer[tx++] = 0x0F;
-					G_io_apdu_buffer[tx++] = 0xFF;
-					THROW(0x9000);
-				}
-				break;
-
-
-				case INS_GET_BASE_58_ENCODED: {
-					Timer_Restart();
-					unsigned int in_len = get_apdu_buffer_length();
-					unsigned char * in = G_io_apdu_buffer + APDU_HEADER_LENGTH;
-					if(in_len >= 0xFF) {
-						G_io_apdu_buffer[tx++] = 0x0E;
-						G_io_apdu_buffer[tx++] = in_len >> 24;
-						G_io_apdu_buffer[tx++] = in_len >> 16;
-						G_io_apdu_buffer[tx++] = in_len >> 8;
-						G_io_apdu_buffer[tx++] = in_len;
-						G_io_apdu_buffer[tx++] = 0xE0;
-						THROW(0x6D17);
-					}
-					// unsigned char out[0x10];
-					char out[0x23];
-					os_memset(out,0x00,sizeof(out));
-					const unsigned int out_length = sizeof(out);
-					const bool enable_debug = DEBUG_OUT_ENABLED;
-					encode_base_58(in, in_len, out,out_length,enable_debug);
-					// unsigned int outlen;
-					// btchip_encode_base58(in, in_len, out,  &outlen);
-					G_io_apdu_buffer[tx++] = 0xFF;
-					G_io_apdu_buffer[tx++] = 0xF0;
-					G_io_apdu_buffer[tx++] = 0x0F;
-					os_memmove(G_io_apdu_buffer + tx, out, sizeof(out));
-					tx += sizeof(out);
-					G_io_apdu_buffer[tx++] = 0xF0;
-					G_io_apdu_buffer[tx++] = 0x0F;
-					G_io_apdu_buffer[tx++] = 0xFF;
 					THROW(0x9000);
 				}
 				break;
