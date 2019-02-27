@@ -54,7 +54,7 @@ unsigned char public_key_encoded[33];
 
 unsigned char script_hash[SCRIPT_HASH_LEN];
 
-unsigned char code_hash[SCRIPT_HASH_LEN+1];
+unsigned char code_hash[CODE_HASH_LEN];
 
 unsigned char address[ADDRESS_LEN];
 
@@ -353,7 +353,7 @@ void display_tx_desc() {
 	char * address_base58_2 = address_base58 + address_base58_len_0 + address_base58_len_1;
 
 	unsigned char value[VALUE_LEN];
-	unsigned char program_hash[21];
+	unsigned char program_hash[CODE_HASH_LEN];
 
 	for(int output_ix = 0; output_ix < num_outputs; output_ix++ ) {
 		// skip asset id, since we don't display it.
@@ -377,7 +377,7 @@ void display_tx_desc() {
 		next_raw_tx_arr(program_hash,sizeof(program_hash));
 
 		os_memmove(script_hash, program_hash, SCRIPT_HASH_LEN);
-		to_address(address_base58, ADDRESS_BASE58_LEN, script_hash, SCRIPT_HASH_LEN);
+		to_address(address_base58, ADDRESS_BASE58_LEN, program_hash, CODE_HASH_LEN);
 		if (scr_ix < MAX_TX_TEXT_SCREENS) {
 			os_memset(tx_desc[scr_ix], '\0', CURR_TX_DESC_LEN);
 			os_memmove(tx_desc[scr_ix][0], address_base58_0, address_base58_len_0);
