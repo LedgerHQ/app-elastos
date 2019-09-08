@@ -4,6 +4,9 @@
 #include "elastos.h"
 #include "base-encoding.h"
 
+/** version 9, where parsing changed */
+#define VERSION9 9
+
 /** length of tx.output.value */
 #define VALUE_LEN 8
 
@@ -241,12 +244,20 @@ static void to_hex(char * dest, const unsigned char * src, const unsigned int de
 void display_tx_desc() {
 	unsigned int scr_ix = 0;
 
-
 	char hex_buffer[MAX_TX_TEXT_WIDTH];
 	unsigned int hex_buffer_len = 0;
 
 	// read TxType;
-	unsigned char tx_type = next_raw_tx();
+	unsigned char tx_type_or_version = next_raw_tx();
+	unsigned char tx_type;
+	unsigned char tx_version = 0;
+
+	if (tx_type_or_version >= VERSION9) {
+		tx_version = tx_type_or_version;
+		tx_type = next_raw_tx();
+	} else {
+		tx_type = tx_type_or_version;
+	}
 
 	if(SHOW_TX_TYPE) {
 		if (scr_ix < MAX_TX_TEXT_SCREENS) {
@@ -354,6 +365,12 @@ void display_tx_desc() {
 
 	unsigned char value[VALUE_LEN];
 	unsigned char program_hash[CODE_HASH_LEN];
+	unsigned char output_type;
+	unsigned char output_payload_contents_len;
+	unsigned char output_payload_contents_ix;
+	unsigned char output_payload_candidates_len;
+	unsigned char output_payload_candidates_ix;
+	unsigned char output_payload_candidate_len;
 
 	for(int output_ix = 0; output_ix < num_outputs; output_ix++ ) {
 		// skip asset id, since we don't display it.
@@ -385,6 +402,35 @@ void display_tx_desc() {
 			os_memmove(tx_desc[scr_ix][2], address_base58_2, address_base58_len_2);
 
 			scr_ix++;
+		}
+
+		if (tx_type_or_version >= VERSION9) {
+			output_type = next_raw_tx();
+			if (output_type == 1) {
+				// Output.Payload.Version = smartEncodedTx.readUInt8();
+				next_raw_tx();
+
+				// const ContentsLen = readVarUint(smartEncodedTx);
+				output_payload_contents_len = next_raw_tx_varbytes_num();
+
+				for(output_payload_contents_ix = 0;
+				    output_payload_contents_ix < output_payload_contents_len;
+				    output_payload_contents_ix++) {
+					// Content.Votetype = smartEncodedTx.readUInt8();
+					next_raw_tx();
+
+					// const CandidatesLen = readVarUint(smartEncodedTx);
+					output_payload_candidates_len = next_raw_tx_varbytes_num();
+
+					for(output_payload_candidates_ix = 0;
+					    output_payload_candidates_ix < output_payload_candidates_len;
+					    output_payload_candidates_ix++) {
+
+						output_payload_candidate_len = next_raw_tx_varbytes_num();
+						skip_raw_tx(output_payload_candidate_len);
+					}
+				}
+			}
 		}
 	}
 
