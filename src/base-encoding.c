@@ -4,20 +4,20 @@
 #include "base-encoding.h"
 
 /** array of base10 aplhabet letters */
-static const char BASE_2_ALPHABET[] = { '0', '1' };
+static const char const BASE_2_ALPHABET[] = { '0', '1' };
 
 /** array of base10 aplhabet letters */
-static const char BASE_10_ALPHABET[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' };
+static const char const BASE_10_ALPHABET[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' };
 
 
 /** array of base10 alphabet letters */
-static const char BASE_32_ALPHABET[] = {
+static const char const BASE_32_ALPHABET[] = {
 	'1', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
 	'I', 'J', 'K', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'W', 'X', 'Y', 'Z'
 };
 
 /** array of base58 alphabet letters */
-static const char BASE_58_ALPHABET[] = {
+static const char const BASE_58_ALPHABET[] = {
 	'1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P', 'Q',
 	'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v',
 	'w', 'x', 'y', 'z'

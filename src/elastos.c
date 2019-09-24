@@ -19,37 +19,37 @@
 /** if true, show a screen with the transaction type. */
 #define SHOW_TX_TYPE false
 
-static const char TXT_TX_TYPE[] = "TX_TYPE\0";
+static const char const TXT_TX_TYPE[] = "TX_TYPE\0";
 
 /** if true, show a screen with the payload version. */
 #define SHOW_PAYLOAD_VERSION false
 
-static const char TXT_PAYLOAD_VERSION[] = "PAYLOAD_VERSION\0";
+static const char const TXT_PAYLOAD_VERSION[] = "PAYLOAD_VERSION\0";
 
 /** if true, show a screen with the number of attributes. */
 #define SHOW_NUM_ATTR false
 
-static const char TXT_NUM_ATTR[] = "NUM_ATTR\0";
+static const char const TXT_NUM_ATTR[] = "NUM_ATTR\0";
 
 /** if true, show a screen with the number of inputs. */
 #define SHOW_NUM_INPUTS false
 
-static const char TXT_NUM_INPUTS[] = "NUM_INPUTS\0";
+static const char const TXT_NUM_INPUTS[] = "NUM_INPUTS\0";
 
 /** MAX_TX_TEXT_WIDTH in blanks, used for clearing a line of text */
-static const char TXT_BLANK[] = "                 \0";
+static const char const TXT_BLANK[] = "                 \0";
 
-static const char TXT_ASSET_ELA[] = "ELA\0";
+static const char const TXT_ASSET_ELA[] = "ELA\0";
 
 /** text to display if an asset's base-10 encoded value is too low to display */
-static const char TXT_LOW_VALUE[] = "Low Value\0";
+static const char const TXT_LOW_VALUE[] = "Low Value\0";
 
 /** a period, for displaying the decimal point. */
-static const char TXT_PERIOD[] = ".";
+static const char const TXT_PERIOD[] = ".";
 
 /** Label when a public key has not been set yet */
-static const char NO_PUBLIC_KEY_0[] = "No Public Key";
-static const char NO_PUBLIC_KEY_1[] = "Requested Yet";
+static const char const NO_PUBLIC_KEY_0[] = "No Public Key";
+static const char const NO_PUBLIC_KEY_1[] = "Requested Yet";
 
 unsigned char verification_script[35];
 
@@ -216,7 +216,7 @@ static void to_base10_100m(char * dest, const unsigned char * value, const unsig
 }
 
 /** array of capital letter hex values */
-static const char HEX_CAP[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', };
+static const char const HEX_CAP[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', };
 
 /** returns the minimum of two ints. */
 static unsigned int min(unsigned int i0, unsigned int i1) {
