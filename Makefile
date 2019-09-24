@@ -29,6 +29,8 @@ APP_DELETE_PARAMS =  $(COMMON_DELETE_PARAMS)
 
 ifeq ($(TARGET_NAME),TARGET_BLUE)
 ICONNAME=icon_blue.gif
+else ifeq ($(TARGET_NAME),TARGET_NANOX)
+ICONNAME=iconx.gif
 else
 ICONNAME=icon.gif
 endif
