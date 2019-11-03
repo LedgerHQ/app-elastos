@@ -237,6 +237,12 @@ static void elastos_main(void) {
 					cx_ecdsa_init_public_key(CX_CURVE_256R1, NULL, 0, &publicKey);
 					cx_ecfp_generate_pair(CX_CURVE_256R1, &publicKey, &privateKey, 1);
 
+
+					// clear private key data
+					cx_ecdsa_init_private_key(CX_CURVE_256R1, NULL, 0, &privateKey);
+					// memset(&privateKey, 0x00, sizeof(privateKey));
+					memset(privateKeyData, 0x00, sizeof(privateKeyData));
+
 					display_public_key(publicKey.W);
 					refresh_public_key_display();
 
@@ -251,7 +257,7 @@ static void elastos_main(void) {
 				}
 				break;
 
-				case 0xFF:                                                                                                                 // return to dashboard
+				case 0xFF:                                                                                                                                 // return to dashboard
 					goto return_to_dashboard;
 
 				// we're asked to do an unknown command
@@ -305,7 +311,7 @@ unsigned char io_event(unsigned char channel) {
 		UX_FINGER_EVENT(G_io_seproxyhal_spi_buffer);
 		break;
 
-	case SEPROXYHAL_TAG_BUTTON_PUSH_EVENT:                         // for Nano S
+	case SEPROXYHAL_TAG_BUTTON_PUSH_EVENT:                             // for Nano S
 		Timer_Restart();
 		UX_BUTTON_PUSH_EVENT(G_io_seproxyhal_spi_buffer);
 		break;

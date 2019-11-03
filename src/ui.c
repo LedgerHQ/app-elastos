@@ -609,6 +609,10 @@ const bagl_element_t*io_seproxyhal_touch_approve(const bagl_element_t *e) {
 		unsigned int max_sig_length = sizeof(G_io_apdu_buffer);
 		tx = cx_ecdsa_sign((void*) &privateKey, CX_RND_RFC6979 | CX_LAST, CX_SHA256, result, sizeof(result), G_io_apdu_buffer, max_sig_length, &info);
 
+		cx_ecdsa_init_private_key(CX_CURVE_256R1, NULL, 0, &privateKey);
+		// memset(&privateKey, 0x00, sizeof(privateKey));
+		memset(privateKeyData, 0x00, sizeof(privateKeyData));
+
 		// G_io_apdu_buffer[0] &= 0xF0; // discard the parity information
 		hashTainted = 1;
 		raw_tx_ix = 0;
