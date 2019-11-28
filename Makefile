@@ -91,3 +91,6 @@ delete:
 # Import generic rules from the SDK
 
 include $(BOLOS_SDK)/Makefile.rules
+
+listvariants:
+	@echo VARIANTS COIN elastos 
