@@ -39,6 +39,10 @@ static const char const TXT_NUM_INPUTS[] = "NUM_INPUTS\0";
 /** MAX_TX_TEXT_WIDTH in blanks, used for clearing a line of text */
 static const char const TXT_BLANK[] = "                 \0";
 
+static const char const TXT_CHANGE[] = "CHANGE\0";
+
+static const char const TXT_SPEND[] = "SPEND\0";
+
 static const char const TXT_ASSET_ELA[] = "ELA\0";
 
 /** text to display if an asset's base-10 encoded value is too low to display */
@@ -385,6 +389,16 @@ void display_tx_desc() {
 			os_memmove(tx_desc[scr_ix][0], TXT_ASSET_ELA, sizeof(TXT_ASSET_ELA));
 			to_base10_100m(tx_desc[scr_ix][1], value, MAX_TX_TEXT_WIDTH);
 			os_memmove(tx_desc[scr_ix][2], TXT_BLANK, sizeof(TXT_BLANK));
+
+			unsigned char found_nonzero = 0;
+			for(int zero_ix = 0; (zero_ix < MAX_TX_TEXT_WIDTH-2) && (found_nonzero == 0); zero_ix++) {
+				if(tx_desc[scr_ix][1][zero_ix] == '0') {
+					tx_desc[scr_ix][1][zero_ix] = ' ';
+				} else {
+					found_nonzero = 1;
+				}
+			}
+
 			scr_ix++;
 		}
 
@@ -395,6 +409,30 @@ void display_tx_desc() {
 
 		os_memmove(script_hash, program_hash, SCRIPT_HASH_LEN);
 		to_address(address_base58, ADDRESS_BASE58_LEN, program_hash, CODE_HASH_LEN);
+
+		unsigned char is_change = 1;
+		for(int is_change_ix = 0; is_change_ix < address_base58_len_0; is_change_ix++) {
+			if(address_base58_0[is_change_ix] != current_public_key[0][is_change_ix]) {
+				is_change = 0;
+			}
+		}
+		for(int is_change_ix = 0; is_change_ix < address_base58_len_1; is_change_ix++) {
+			if(address_base58_1[is_change_ix] != current_public_key[1][is_change_ix]) {
+				is_change = 0;
+			}
+		}
+		for(int is_change_ix = 0; is_change_ix < address_base58_len_2; is_change_ix++) {
+			if(address_base58_2[is_change_ix] != current_public_key[2][is_change_ix]) {
+				is_change = 0;
+			}
+		}
+		if(is_change == 1) {
+			os_memmove(tx_desc[scr_ix-1][2], TXT_CHANGE, sizeof(TXT_CHANGE));
+		} else {
+			os_memmove(tx_desc[scr_ix-1][2], TXT_SPEND, sizeof(TXT_SPEND));
+		}
+
+
 		if (scr_ix < MAX_TX_TEXT_SCREENS) {
 			os_memset(tx_desc[scr_ix], '\0', CURR_TX_DESC_LEN);
 			os_memmove(tx_desc[scr_ix][0], address_base58_0, address_base58_len_0);
