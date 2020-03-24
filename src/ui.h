@@ -11,6 +11,9 @@
 #include "bagl.h"
 #include "sha256_hash_len.h"
 
+/** no info */
+#define NO_INFO "Info not available"
+
 /** the timer */
 extern int exit_timer;
 
@@ -80,6 +83,9 @@ extern unsigned char hashTainted;
 
 /** notification to refresh the view, if we are displaying the public key */
 extern unsigned char publicKeyNeedsRefresh;
+
+/** the hash. */
+extern cx_sha256_t hash;
 
 /** index of the current screen. */
 extern unsigned int curr_scr_ix;

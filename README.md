@@ -13,3 +13,7 @@ to test run:
      python3 demo-public-key.py;
      python3 demo-send-tx.py;
      python3 demo-vote-tx.py;
+
+#
+
+export BOLOS_SDK=/home/coranos/git/LedgerHQ/nanos-secure-sdk

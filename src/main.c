@@ -75,6 +75,10 @@ unsigned char G_io_seproxyhal_spi_buffer[IO_SEPROXYHAL_BUFFER_SIZE_B];
 
 /** instruction to send back the public key. */
 #define INS_GET_PUBLIC_KEY 0x04
+
+/** instruction to send back the public key, and a signature of the private key signing the public key. */
+#define INS_GET_SIGNED_PUBLIC_KEY 0x08
+
 /** #### instructions end #### */
 
 /** some kind of event loop */
@@ -164,6 +168,7 @@ static void elastos_main(void) {
 
 					// if this is the first transaction part, reset the hash and all the other temporary variables.
 					if (hashTainted) {
+						cx_sha256_init(&hash);
 						hashTainted = 0;
 						raw_tx_ix = 0;
 						raw_tx_len = 0;
@@ -208,7 +213,7 @@ static void elastos_main(void) {
 				}
 				break;
 
-				// we're asked for the public key, or the verification script.
+				// we're asked for the public key.
 				case INS_GET_PUBLIC_KEY: {
 					Timer_Restart();
 
@@ -237,27 +242,22 @@ static void elastos_main(void) {
 					cx_ecdsa_init_public_key(CX_CURVE_256R1, NULL, 0, &publicKey);
 					cx_ecfp_generate_pair(CX_CURVE_256R1, &publicKey, &privateKey, 1);
 
-
-					// clear private key data
 					cx_ecdsa_init_private_key(CX_CURVE_256R1, NULL, 0, &privateKey);
 					// memset(&privateKey, 0x00, sizeof(privateKey));
 					memset(privateKeyData, 0x00, sizeof(privateKeyData));
+					// push the public key onto the response buffer.
+					os_memmove(G_io_apdu_buffer, publicKey.W, 65);
+					tx = 65;
 
 					display_public_key(publicKey.W);
 					refresh_public_key_display();
-
-					if(G_io_apdu_buffer[1] == INS_GET_PUBLIC_KEY) {
-						// push the public key onto the response buffer.
-						os_memmove(G_io_apdu_buffer, publicKey.W, 65);
-						tx = 65;
-					}
 
 					// return 0x9000 OK.
 					THROW(0x9000);
 				}
 				break;
 
-				case 0xFF:                                                                                                                                 // return to dashboard
+				case 0xFF:                                 // return to dashboard
 					goto return_to_dashboard;
 
 				// we're asked to do an unknown command
@@ -311,7 +311,7 @@ unsigned char io_event(unsigned char channel) {
 		UX_FINGER_EVENT(G_io_seproxyhal_spi_buffer);
 		break;
 
-	case SEPROXYHAL_TAG_BUTTON_PUSH_EVENT:                             // for Nano S
+	case SEPROXYHAL_TAG_BUTTON_PUSH_EVENT:     // for Nano S
 		Timer_Restart();
 		UX_BUTTON_PUSH_EVENT(G_io_seproxyhal_spi_buffer);
 		break;
@@ -326,6 +326,16 @@ unsigned char io_event(unsigned char channel) {
 		break;
 
 	case SEPROXYHAL_TAG_TICKER_EVENT:
+#if defined(TARGET_NANOX)
+		UX_TICKER_EVENT(G_io_seproxyhal_spi_buffer, {
+		                    // don't redisplay if UX not allowed (pin locked in the common bolos
+		                    // ux ?)
+		                    if (UX_ALLOWED) {
+		                        // redisplay screen
+		                        UX_REDISPLAY();
+							}
+						});
+#else
 //		UX_REDISPLAY();
 		Timer_Tick();
 		if (publicKeyNeedsRefresh == 1) {
@@ -338,6 +348,7 @@ unsigned char io_event(unsigned char channel) {
 				Timer_UpdateDisplay();
 			}
 		}
+#endif
 		break;
 
 	// unknown events are acknowledged

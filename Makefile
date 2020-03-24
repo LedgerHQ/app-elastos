@@ -23,33 +23,66 @@ include $(BOLOS_SDK)/Makefile.defines
 # Main app configuration
 
 APPNAME = "Elastos"
-APPVERSION = 1.0.0
-APP_LOAD_PARAMS = --path "44'/2305'" --appFlags 0x40 $(COMMON_LOAD_PARAMS)
-APP_DELETE_PARAMS =  $(COMMON_DELETE_PARAMS)
+APPVERSION = 1.1.0
+APP_LOAD_PARAMS = --path "44'/2305'" --appFlags 0x240 --apdu $(COMMON_LOAD_PARAMS)
+APP_DELETE_PARAMS =  --apdu $(COMMON_DELETE_PARAMS)
 
-ifeq ($(TARGET_NAME),TARGET_BLUE)
-ICONNAME=icon_blue.gif
-else ifeq ($(TARGET_NAME),TARGET_NANOX)
-ICONNAME=iconx.gif
+ifeq ($(TARGET_NAME),TARGET_NANOX)
+ICONNAME=nanox_icon.gif
 else
-ICONNAME=icon.gif
+ICONNAME=nano_icon.gif
 endif
+
 
 # Build configuration
 
-APP_SOURCE_PATH += src
-SDK_SOURCE_PATH += lib_stusb lib_stusb_impl
-
 DEFINES += APPVERSION=\"$(APPVERSION)\"
 
-DEFINES += OS_IO_SEPROXYHAL IO_SEPROXYHAL_BUFFER_SIZE_B=128
+DEFINES += OS_IO_SEPROXYHAL
 DEFINES += HAVE_BAGL HAVE_SPRINTF
-DEFINES += PRINTF\(...\)=
+
 
 DEFINES += HAVE_IO_USB HAVE_L4_USBLIB IO_USB_MAX_ENDPOINTS=7 IO_HID_EP_LENGTH=64 HAVE_USB_APDU
 
-# Compiler, assembler, and linker
+DEFINES += USB_SEGMENT_SIZE=64
+DEFINES += U2F_PROXY_MAGIC=\"NEO\"
+DEFINES += HAVE_IO_U2F
 
+WEBUSB_URL     = www.ledgerwallet.com
+DEFINES       += HAVE_WEBUSB WEBUSB_URL_SIZE_B=$(shell echo -n $(WEBUSB_URL) | wc -c) WEBUSB_URL=$(shell echo -n $(WEBUSB_URL) | sed -e "s/./\\\'\0\\\',/g")
+
+ifeq ($(TARGET_NAME),TARGET_NANOX)
+DEFINES   	  += IO_SEPROXYHAL_BUFFER_SIZE_B=300
+DEFINES       += HAVE_BLE BLE_COMMAND_TIMEOUT_MS=2000
+DEFINES       += HAVE_BLE_APDU # basic ledger apdu transport over BLE
+
+DEFINES       += HAVE_GLO096
+DEFINES       += HAVE_BAGL BAGL_WIDTH=128 BAGL_HEIGHT=64
+DEFINES       += HAVE_BAGL_ELLIPSIS # long label truncation feature
+DEFINES       += HAVE_BAGL_FONT_OPEN_SANS_REGULAR_11PX
+DEFINES       += HAVE_BAGL_FONT_OPEN_SANS_EXTRABOLD_11PX
+DEFINES       += HAVE_BAGL_FONT_OPEN_SANS_LIGHT_16PX
+DEFINES       += HAVE_UX_FLOW
+else
+DEFINES   += IO_SEPROXYHAL_BUFFER_SIZE_B=128
+endif
+
+# Enabling debug PRINTF
+DEBUG = 0
+ifneq ($(DEBUG),0)
+
+        ifeq ($(TARGET_NAME),TARGET_NANOX)
+                DEFINES   += HAVE_PRINTF PRINTF=mcu_usb_printf
+        else
+                DEFINES   += HAVE_PRINTF PRINTF=screen_printf
+        endif
+else
+        DEFINES   += PRINTF\(...\)=
+endif
+
+##############
+#  Compiler  #
+##############
 ifneq ($(BOLOS_ENV),)
 $(info BOLOS_ENV=$(BOLOS_ENV))
 CLANGPATH := $(BOLOS_ENV)/clang-arm-fropi/bin/
@@ -76,7 +109,13 @@ LD := $(GCCPATH)arm-none-eabi-gcc
 LDFLAGS += -O3 -Os
 LDLIBS += -lm -lgcc -lc
 
-include $(BOLOS_SDK)/Makefile.glyphs
+APP_SOURCE_PATH += src
+SDK_SOURCE_PATH += lib_stusb lib_stusb_impl lib_u2f
+
+ifeq ($(TARGET_NAME),TARGET_NANOX)
+SDK_SOURCE_PATH  += lib_blewbxx lib_blewbxx_impl
+SDK_SOURCE_PATH  += lib_ux
+endif
 
 # Main rules
 
@@ -88,6 +127,11 @@ load: all
 delete:
 	python3 -m ledgerblue.deleteApp $(APP_DELETE_PARAMS)
 
-# Import generic rules from the SDK
+# import rules to compile glyphs(/pone)
+include $(BOLOS_SDK)/Makefile.glyphs
 
+# Import generic rules from the SDK
 include $(BOLOS_SDK)/Makefile.rules
+
+listvariants:
+	@echo VARIANTS neo
