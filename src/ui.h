@@ -56,7 +56,7 @@ extern char timer_desc[MAX_TIMER_TEXT_WIDTH];
 #define MAX_TX_TEXT_LINES 3
 
 /** max number of screens to display. */
-#define MAX_TX_TEXT_SCREENS 9
+#define MAX_TX_TEXT_SCREENS 3
 
 /** max number of hex bytes that can be displayed (2 hex characters for 1 byte of data) */
 #define MAX_HEX_BUFFER_LEN (MAX_TX_TEXT_WIDTH / 2)

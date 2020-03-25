@@ -55,14 +55,6 @@ static const char const TXT_PERIOD[] = ".";
 static const char const NO_PUBLIC_KEY_0[] = "No Public Key";
 static const char const NO_PUBLIC_KEY_1[] = "Requested Yet";
 
-unsigned char verification_script[35];
-
-unsigned char public_key_encoded[33];
-
-unsigned char script_hash[SCRIPT_HASH_LEN];
-
-unsigned char code_hash[CODE_HASH_LEN];
-
 unsigned char address[ADDRESS_LEN];
 
 void display_no_public_key() {
@@ -106,19 +98,23 @@ void display_public_key(const unsigned char * public_key) {
 	os_memmove(current_public_key[2], TXT_BLANK, sizeof(TXT_BLANK));
 
 
+	unsigned char public_key_encoded[33];
 	public_key_encoded[0] = ((public_key[64] & 1) ? 0x03 : 0x02);
 	os_memmove(public_key_encoded + 1, public_key + 1, 32);
 
+	unsigned char verification_script[35];
 	verification_script[0] = 33;
 	os_memmove(verification_script + 1, public_key_encoded, sizeof(public_key_encoded));
 	verification_script[sizeof(verification_script) - 1] = 0xAC;
 
+	unsigned char script_hash[SCRIPT_HASH_LEN];
 	for (int i = 0; i < SCRIPT_HASH_LEN; i++) {
 		script_hash[i] = 0x00;
 	}
 
 	public_key_hash160(verification_script, sizeof(verification_script), script_hash, sizeof(script_hash));
 
+	unsigned char code_hash[CODE_HASH_LEN];
 	code_hash[0] = 33;
 	os_memmove(code_hash + 1, script_hash, sizeof(script_hash));
 

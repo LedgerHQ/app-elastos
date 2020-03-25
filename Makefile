@@ -35,6 +35,7 @@ endif
 
 
 # Build configuration
+# DEFINES += HAVE_UX_FLOW
 
 DEFINES += APPVERSION=\"$(APPVERSION)\"
 
