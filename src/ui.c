@@ -105,28 +105,21 @@ UX_STEP_NOCB(
       "Transaction"
     });
 UX_STEP_NOCB(
-    ux_confirm_single_flow_2_step,
-    bn,
-    {
-      "Type",
-      tx_desc[0][1]
-    });
-UX_STEP_NOCB(
     ux_confirm_single_flow_3_step,
     bnn,
     {
       "Amount",
-      tx_desc[1][0],
-      tx_desc[1][1],
+      tx_desc[0][0],
+      tx_desc[0][1],
     });
 UX_STEP_NOCB(
     ux_confirm_single_flow_4_step,
     bnnn,
     {
       "Destination Address",
-      tx_desc[2][0],
-      tx_desc[2][1],
-      tx_desc[2][2]
+      tx_desc[1][0],
+      tx_desc[1][1],
+      tx_desc[1][2]
     });
 UX_STEP_VALID(
     ux_confirm_single_flow_5_step,
@@ -146,7 +139,6 @@ UX_STEP_VALID(
     });
 UX_FLOW(ux_confirm_single_flow,
   &ux_confirm_single_flow_1_step,
-  &ux_confirm_single_flow_2_step,
   &ux_confirm_single_flow_3_step,
   &ux_confirm_single_flow_4_step,
   &ux_confirm_single_flow_5_step,
@@ -795,7 +787,4 @@ static void clear_tx_desc(void) {
             tx_desc[i][j][MAX_TX_TEXT_WIDTH - 1] = '\0';
         }
     }
-
-    strncpy(tx_desc[1][0], NO_INFO, sizeof(NO_INFO));
-    strncpy(tx_desc[2][0], NO_INFO, sizeof(NO_INFO));
 }

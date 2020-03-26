@@ -16,32 +16,8 @@
 /** length of the checksum used to convert a tx.output.script_hash into an Address. */
 #define SCRIPT_HASH_CHECKSUM_LEN 4
 
-/** if true, show a screen with the transaction type. */
-#define SHOW_TX_TYPE false
-
-static const char const TXT_TX_TYPE[] = "TX_TYPE\0";
-
-/** if true, show a screen with the payload version. */
-#define SHOW_PAYLOAD_VERSION false
-
-static const char const TXT_PAYLOAD_VERSION[] = "PAYLOAD_VERSION\0";
-
-/** if true, show a screen with the number of attributes. */
-#define SHOW_NUM_ATTR false
-
-static const char const TXT_NUM_ATTR[] = "NUM_ATTR\0";
-
-/** if true, show a screen with the number of inputs. */
-#define SHOW_NUM_INPUTS false
-
-static const char const TXT_NUM_INPUTS[] = "NUM_INPUTS\0";
-
 /** MAX_TX_TEXT_WIDTH in blanks, used for clearing a line of text */
 static const char const TXT_BLANK[] = "                 \0";
-
-static const char const TXT_CHANGE[] = "CHANGE\0";
-
-static const char const TXT_SPEND[] = "SPEND\0";
 
 static const char const TXT_ASSET_ELA[] = "ELA\0";
 
@@ -259,51 +235,11 @@ void display_tx_desc() {
 		tx_type = tx_type_or_version;
 	}
 
-	if(SHOW_TX_TYPE) {
-		if (scr_ix < MAX_TX_TEXT_SCREENS) {
-
-			hex_buffer_len = min(MAX_HEX_BUFFER_LEN, sizeof(tx_type)) * 2;
-			to_hex(hex_buffer, (unsigned char *) &tx_type, hex_buffer_len);
-
-			os_memset(tx_desc[scr_ix], '\0', CURR_TX_DESC_LEN);
-			os_memmove(tx_desc[scr_ix][0], TXT_TX_TYPE, sizeof(TXT_TX_TYPE));
-			os_memmove(tx_desc[scr_ix][1], hex_buffer, hex_buffer_len);
-			os_memmove(tx_desc[scr_ix][2], TXT_BLANK, sizeof(TXT_BLANK));
-			scr_ix++;
-		}
-	}
-
 	// read payload version.
 	unsigned char payload_version = next_raw_tx();
 
-	if(SHOW_PAYLOAD_VERSION) {
-		if (scr_ix < MAX_TX_TEXT_SCREENS) {
-			hex_buffer_len = min(MAX_HEX_BUFFER_LEN, sizeof(payload_version)) * 2;
-			to_hex(hex_buffer, (unsigned char *) &payload_version, hex_buffer_len);
-
-			os_memset(tx_desc[scr_ix], '\0', CURR_TX_DESC_LEN);
-			os_memmove(tx_desc[scr_ix][0], TXT_PAYLOAD_VERSION, sizeof(TXT_PAYLOAD_VERSION));
-			os_memmove(tx_desc[scr_ix][1], hex_buffer, hex_buffer_len);
-			os_memmove(tx_desc[scr_ix][2], TXT_BLANK, sizeof(TXT_BLANK));
-			scr_ix++;
-		}
-	}
-
 // read number of attributes
 	unsigned char num_attr = next_raw_tx_varbytes_num();
-
-	if(SHOW_NUM_ATTR) {
-		if (scr_ix < MAX_TX_TEXT_SCREENS) {
-			hex_buffer_len = min(MAX_HEX_BUFFER_LEN, sizeof(num_attr)) * 2;
-			to_hex(hex_buffer, (unsigned char *) &num_attr, hex_buffer_len);
-
-			os_memset(tx_desc[scr_ix], '\0', CURR_TX_DESC_LEN);
-			os_memmove(tx_desc[scr_ix][0], TXT_NUM_ATTR, sizeof(TXT_NUM_ATTR));
-			os_memmove(tx_desc[scr_ix][1], hex_buffer, hex_buffer_len);
-			os_memmove(tx_desc[scr_ix][2], TXT_BLANK, sizeof(TXT_BLANK));
-			scr_ix++;
-		}
-	}
 
 	for(int attr_ix = 0; attr_ix < num_attr; attr_ix++ ) {
 		// attribute usage
@@ -317,20 +253,6 @@ void display_tx_desc() {
 
 	// read number of inputs
 	unsigned char num_inputs = next_raw_tx_varbytes_num();
-
-
-	if(SHOW_NUM_INPUTS) {
-		if (scr_ix < MAX_TX_TEXT_SCREENS) {
-			hex_buffer_len = min(MAX_HEX_BUFFER_LEN, sizeof(num_inputs)) * 2;
-			to_hex(hex_buffer, (unsigned char *) &num_inputs, hex_buffer_len);
-
-			os_memset(tx_desc[scr_ix], '\0', CURR_TX_DESC_LEN);
-			os_memmove(tx_desc[scr_ix][0], TXT_NUM_INPUTS, sizeof(TXT_NUM_INPUTS));
-			os_memmove(tx_desc[scr_ix][1], hex_buffer, hex_buffer_len);
-			os_memmove(tx_desc[scr_ix][2], TXT_BLANK, sizeof(TXT_BLANK));
-			scr_ix++;
-		}
-	}
 
 	for(int input_ix = 0; input_ix < num_inputs; input_ix++ ) {
 		// skip tx id, since we don't display it.
@@ -405,29 +327,6 @@ void display_tx_desc() {
 
 		os_memmove(script_hash, program_hash, SCRIPT_HASH_LEN);
 		to_address(address_base58, ADDRESS_BASE58_LEN, program_hash, CODE_HASH_LEN);
-
-		unsigned char is_change = 1;
-		for(int is_change_ix = 0; is_change_ix < address_base58_len_0; is_change_ix++) {
-			if(address_base58_0[is_change_ix] != current_public_key[0][is_change_ix]) {
-				is_change = 0;
-			}
-		}
-		for(int is_change_ix = 0; is_change_ix < address_base58_len_1; is_change_ix++) {
-			if(address_base58_1[is_change_ix] != current_public_key[1][is_change_ix]) {
-				is_change = 0;
-			}
-		}
-		for(int is_change_ix = 0; is_change_ix < address_base58_len_2; is_change_ix++) {
-			if(address_base58_2[is_change_ix] != current_public_key[2][is_change_ix]) {
-				is_change = 0;
-			}
-		}
-		if(is_change == 1) {
-			os_memmove(tx_desc[scr_ix-1][2], TXT_CHANGE, sizeof(TXT_CHANGE));
-		} else {
-			os_memmove(tx_desc[scr_ix-1][2], TXT_SPEND, sizeof(TXT_SPEND));
-		}
-
 
 		if (scr_ix < MAX_TX_TEXT_SCREENS) {
 			os_memset(tx_desc[scr_ix], '\0', CURR_TX_DESC_LEN);
