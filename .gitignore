@@ -3,3 +3,5 @@
 /bin/
 /dep/
 /obj/
+src/glyphs.h
+src/glyphs.c
