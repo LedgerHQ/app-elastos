@@ -23,7 +23,7 @@ include $(BOLOS_SDK)/Makefile.defines
 # Main app configuration
 
 APPNAME = "Elastos"
-APPVERSION = 1.1.0
+APPVERSION = 1.1.1
 APP_LOAD_PARAMS = --path "44'/2305'" --appFlags 0x240 --apdu $(COMMON_LOAD_PARAMS)
 APP_DELETE_PARAMS =  --apdu $(COMMON_DELETE_PARAMS)
 
