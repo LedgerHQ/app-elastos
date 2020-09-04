@@ -19,7 +19,11 @@
 /** MAX_TX_TEXT_WIDTH in blanks, used for clearing a line of text */
 static const char const TXT_BLANK[] = "                 \0";
 
-static const char const TXT_ASSET_ELA[] = "ELA\0";
+static const char const TXT_AMOUNT_ELA[] = "Amount ELA\0";
+
+static const char const TXT_CHANGE_ELA[] = "Change ELA\0";
+
+static const char const TXT_FEE_ELA[] = "Fee ELA\0";
 
 /** text to display if an asset's base-10 encoded value is too low to display */
 static const char const TXT_LOW_VALUE[] = "Low Value\0";
@@ -304,7 +308,17 @@ void display_tx_desc() {
 		// display the value
 		if (scr_ix < MAX_TX_TEXT_SCREENS) {
 			os_memset(tx_desc[scr_ix], '\0', CURR_TX_DESC_LEN);
-			os_memmove(tx_desc[scr_ix][0], TXT_ASSET_ELA, sizeof(TXT_ASSET_ELA));
+			// os_memmove(tx_desc[scr_ix][0], TXT_ASSET_ELA, sizeof(TXT_ASSET_ELA));
+			if(output_ix == 0) {
+				os_memmove(tx_desc[scr_ix][0], TXT_AMOUNT_ELA, sizeof(TXT_AMOUNT_ELA));
+			}
+			if(output_ix == 1) {
+				os_memmove(tx_desc[scr_ix][0], TXT_CHANGE_ELA, sizeof(TXT_CHANGE_ELA));
+			}
+			if(output_ix == 2) {
+				os_memmove(tx_desc[scr_ix][0], TXT_FEE_ELA, sizeof(TXT_FEE_ELA));
+			}
+			
 			to_base10_100m(tx_desc[scr_ix][1], value, MAX_TX_TEXT_WIDTH);
 			os_memmove(tx_desc[scr_ix][2], TXT_BLANK, sizeof(TXT_BLANK));
 
