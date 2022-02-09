@@ -27,10 +27,10 @@ APPVERSION = 1.1.3
 APP_LOAD_PARAMS = --path "44'/2305'" --appFlags 0x240 --apdu $(COMMON_LOAD_PARAMS)
 APP_DELETE_PARAMS =  --apdu $(COMMON_DELETE_PARAMS)
 
-ifeq ($(TARGET_NAME),TARGET_NANOX)
-ICONNAME=nanox_icon.gif
-else
+ifeq ($(TARGET_NAME),TARGET_NANOS)
 ICONNAME=nano_icon.gif
+else
+ICONNAME=nanox_icon.gif
 endif
 
 
@@ -53,10 +53,15 @@ WEBUSB_URL     = www.ledgerwallet.com
 DEFINES       += HAVE_WEBUSB WEBUSB_URL_SIZE_B=$(shell echo -n $(WEBUSB_URL) | wc -c) WEBUSB_URL=$(shell echo -n $(WEBUSB_URL) | sed -e "s/./\\\'\0\\\',/g")
 
 ifeq ($(TARGET_NAME),TARGET_NANOX)
-DEFINES   	  += IO_SEPROXYHAL_BUFFER_SIZE_B=300
 DEFINES       += HAVE_BLE BLE_COMMAND_TIMEOUT_MS=2000
 DEFINES       += HAVE_BLE_APDU # basic ledger apdu transport over BLE
+endif
 
+ifeq ($(TARGET_NAME),TARGET_NANOS)
+DEFINES       += IO_SEPROXYHAL_BUFFER_SIZE_B=128
+DEFINES       += COMPLIANCE_UX_160
+else
+DEFINES       += IO_SEPROXYHAL_BUFFER_SIZE_B=300
 DEFINES       += HAVE_GLO096
 DEFINES       += HAVE_BAGL BAGL_WIDTH=128 BAGL_HEIGHT=64
 DEFINES       += HAVE_BAGL_ELLIPSIS # long label truncation feature
@@ -64,19 +69,16 @@ DEFINES       += HAVE_BAGL_FONT_OPEN_SANS_REGULAR_11PX
 DEFINES       += HAVE_BAGL_FONT_OPEN_SANS_EXTRABOLD_11PX
 DEFINES       += HAVE_BAGL_FONT_OPEN_SANS_LIGHT_16PX
 DEFINES       += HAVE_UX_FLOW
-else
-DEFINES   += IO_SEPROXYHAL_BUFFER_SIZE_B=128
-DEFINES   += COMPLIANCE_UX_160
 endif
 
 # Enabling debug PRINTF
 DEBUG = 0
 ifneq ($(DEBUG),0)
 
-        ifeq ($(TARGET_NAME),TARGET_NANOX)
-                DEFINES   += HAVE_PRINTF PRINTF=mcu_usb_printf
-        else
+        ifeq ($(TARGET_NAME),TARGET_NANOS)
                 DEFINES   += HAVE_PRINTF PRINTF=screen_printf
+        else
+                DEFINES   += HAVE_PRINTF PRINTF=mcu_usb_printf
         endif
 else
         DEFINES   += PRINTF\(...\)=
@@ -113,10 +115,10 @@ LDLIBS += -lm -lgcc -lc
 
 APP_SOURCE_PATH += src
 SDK_SOURCE_PATH += lib_stusb lib_stusb_impl lib_u2f
+SDK_SOURCE_PATH += lib_ux
 
 ifeq ($(TARGET_NAME),TARGET_NANOX)
-SDK_SOURCE_PATH  += lib_blewbxx lib_blewbxx_impl
-SDK_SOURCE_PATH  += lib_ux
+SDK_SOURCE_PATH += lib_blewbxx lib_blewbxx_impl
 endif
 
 # Main rules

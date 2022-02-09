@@ -23,7 +23,7 @@ char timer_desc[MAX_TIMER_TEXT_WIDTH];
 enum UI_STATE uiState;
 
 /** UI state flag */
-#ifdef TARGET_NANOX
+#if defined(TARGET_NANOX) || defined(TARGET_NANOS2)
 ux_state_t G_ux;
 bolos_ux_params_t G_ux_params;
 #else // TARGET_NANOX
@@ -93,7 +93,7 @@ static const bagl_element_t * tx_desc_dn(const bagl_element_t *e);
 static void clear_tx_desc(void);
 
 ////////////////////////////////////  NANO X //////////////////////////////////////////////////
-#ifdef TARGET_NANOX
+#if defined(TARGET_NANOX) || defined(TARGET_NANOS2)
 
 UX_STEP_NOCB(
     ux_confirm_single_flow_1_step,
@@ -753,7 +753,7 @@ void ui_idle(void) {
 
 #if defined(TARGET_NANOS)
 	UX_DISPLAY(bagl_ui_idle_nanos, NULL);
-#elif defined(TARGET_NANOX)
+#elif defined(TARGET_NANOX) || defined(TARGET_NANOS2)
 	// reserve a display stack slot if none yet
 	if(G_ux.stack_count == 0) {
 		ux_stack_push();
@@ -793,7 +793,7 @@ void ui_top_sign(void) {
 
 #if defined(TARGET_NANOS)
 	UX_DISPLAY(bagl_ui_top_sign_nanos, NULL);
-#elif defined(TARGET_NANOX)
+#elif defined(TARGET_NANOX) || defined(TARGET_NANOS2)
 	// reserve a display stack slot if none yet
 	if(G_ux.stack_count == 0) {
 		ux_stack_push();
