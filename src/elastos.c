@@ -229,18 +229,20 @@ void display_tx_desc() {
 
 	// read TxType;
 	unsigned char tx_type_or_version = next_raw_tx();
-	unsigned char tx_type;
-	unsigned char tx_version = 0;
+	// unsigned char tx_type;
+	// unsigned char tx_version = 0;
 
 	if (tx_type_or_version >= VERSION9) {
-		tx_version = tx_type_or_version;
-		tx_type = next_raw_tx();
+		// tx_version = tx_type_or_version;
+		// tx_type =
+        next_raw_tx();
 	} else {
-		tx_type = tx_type_or_version;
+		// tx_type = tx_type_or_version;
 	}
 
 	// read payload version.
-	unsigned char payload_version = next_raw_tx();
+	// unsigned char payload_version =
+    next_raw_tx();
 
 // read number of attributes
 	unsigned char num_attr = next_raw_tx_varbytes_num();
@@ -318,7 +320,7 @@ void display_tx_desc() {
 			if(output_ix == 2) {
 				os_memmove(tx_desc[scr_ix][0], TXT_FEE_ELA, sizeof(TXT_FEE_ELA));
 			}
-			
+
 			to_base10_100m(tx_desc[scr_ix][1], value, MAX_TX_TEXT_WIDTH);
 			os_memmove(tx_desc[scr_ix][2], TXT_BLANK, sizeof(TXT_BLANK));
 
