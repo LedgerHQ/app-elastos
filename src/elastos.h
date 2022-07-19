@@ -24,7 +24,8 @@
 /** length of a tx.output Address, after Base58 encoding. +1 for zero padding. */
 #define ADDRESS_BASE58_LEN 34
 
-/** length of a tx.output Address before encoding, which is the length of <address_version>+<script_hash>+<checksum> */
+/** length of a tx.output Address before encoding, which is the length of
+ * <address_version>+<script_hash>+<checksum> */
 #define ADDRESS_LEN (CODE_HASH_LEN + CODE_HASH_CHECKSUM_LEN)
 
 extern unsigned char verification_script[35];
@@ -44,6 +45,6 @@ void display_tx_desc(void);
 void display_no_public_key(void);
 
 /** displays the public key, assumes length is 65. */
-void display_public_key(const unsigned char * public_key);
+void display_public_key(const unsigned char* public_key);
 
-#endif // ELASTOS_H
+#endif  // ELASTOS_H
