@@ -1,6 +1,7 @@
 /*******************************************************************************
  *   Ledger Blue
  *   (c) 2016 Ledger
+ *   Modified by the contributors to the Elastos Ledger app, 2018 to 2026
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +16,7 @@
  *  limitations under the License.
  ********************************************************************************/
 
+#include <string.h>
 #include "os.h"
 #include "cx.h"
 #include <stdbool.h>
@@ -23,6 +25,9 @@
 #include "elastos.h"
 #include "bagl.h"
 #include "base-encoding.h"
+#include "keys.h"
+#include "sw.h"
+#include "tx_session.h"
 // #include "btchip_base58.h"
 
 #define DEBUG_OUT_ENABLED false
@@ -31,10 +36,20 @@
 
 #define EXIT_TIMER_REFRESH_INTERVAL 512
 
+#if defined(TARGET_NANOS) && defined(HAVE_BOLOS_APP_STACK_CANARY)
+/** Canary the Nano S SDK keeps below the stack; any other value means the stack overran it. */
+#define APP_STACK_CANARY 0xDEAD0031u
+extern unsigned int app_stack_canary;
+
+/** Set once io_seproxyhal_init has written the canary. */
+static volatile bool transport_started;
+#endif
+
 static void Timer_UpdateDescription() {
     snprintf(timer_desc, MAX_TIMER_TEXT_WIDTH, "%d", exit_timer / EXIT_TIMER_REFRESH_INTERVAL);
 }
 
+#if defined(TARGET_NANOS)
 static void Timer_UpdateDisplay() {
     if ((exit_timer % EXIT_TIMER_REFRESH_INTERVAL) == (EXIT_TIMER_REFRESH_INTERVAL / 2)) {
         UX_REDISPLAY();
@@ -47,6 +62,7 @@ static void Timer_Tick() {
         Timer_UpdateDescription();
     }
 }
+#endif  // TARGET_NANOS
 
 static void Timer_Set() {
     exit_timer = MAX_EXIT_TIMER;
@@ -59,9 +75,11 @@ static void Timer_Restart() {
     }
 }
 
+#if defined(TARGET_NANOS)
 static bool Timer_Expired() {
     return exit_timer <= 0;
 }
+#endif  // TARGET_NANOS
 
 /** IO buffer to communicate with the outside world. */
 unsigned char G_io_seproxyhal_spi_buffer[IO_SEPROXYHAL_BUFFER_SIZE_B];
@@ -76,11 +94,17 @@ unsigned char G_io_seproxyhal_spi_buffer[IO_SEPROXYHAL_BUFFER_SIZE_B];
 /** instruction to send back the public key. */
 #define INS_GET_PUBLIC_KEY 0x04
 
-/** instruction to send back the public key, and a signature of the private key signing the public
- * key. */
-#define INS_GET_SIGNED_PUBLIC_KEY 0x08
+/** instruction to return to the dashboard. */
+#define INS_EXIT 0xFF
 
 /** #### instructions end #### */
+
+/** offsets in the APDU header */
+#define OFFSET_CLA 0
+#define OFFSET_INS 1
+#define OFFSET_P1  2
+#define OFFSET_P2  3
+#define OFFSET_LC  4
 
 /** some kind of event loop */
 unsigned short io_exchange_al(unsigned char channel, unsigned short tx_len) {
@@ -104,25 +128,210 @@ unsigned short io_exchange_al(unsigned char channel, unsigned short tx_len) {
             }
 
         default:
-            hashTainted = 1;
             THROW(INVALID_PARAMETER);
     }
     return 0;
 }
 
-/** refreshes the display if the public key was changed ans we are on the page displaying the public
- * key */
-static void refresh_public_key_display(void) {
-    if ((uiState == UI_PUBLIC_KEY_1) || (uiState == UI_PUBLIC_KEY_2)) {
-        publicKeyNeedsRefresh = 1;
+/** Ends any signing session and takes a dead review off screen. The SDK blocks new commands while
+ * a review waits, so only an SDK exception can end one here. */
+static void abandon_signing_session(void) {
+    bool review_on_screen = tx_session_is_armed() || ui_review_on_screen();
+    tx_session_reset();
+    if (review_on_screen) {
+        ui_idle();
     }
 }
 
-/** main loop. */
-static void elastos_main(void) {
-    volatile unsigned int rx = 0;
+/** Program hash of the signing key: shown as "Signing with", matched for "Back to you". */
+static unsigned short signer_address(const unsigned int *signing_path,
+                                     uint8_t program_hash[ELA_PROGRAM_HASH_LEN]) {
+    uint8_t pubkey[ELA_PUBKEY_LEN];
+    if (keys_get_public_key(signing_path, pubkey) != CX_OK ||
+        keys_program_hash(pubkey, program_hash) != CX_OK) {
+        return SW_CRYPTO_FAILED;
+    }
+    return SW_OK;
+}
+
+/** Renders the transaction and commits the digest of exactly the rendered bytes and of the text
+ * shown, so approval can sign only what was shown. */
+static unsigned short prepare_review(void) {
+    unsigned int path[ELA_PATH_LEN];
+    uint8_t signer_program_hash[ELA_PROGRAM_HASH_LEN];
+    uint8_t digest[ELA_DIGEST_LEN];
+
+    if (raw_tx_len <= ELA_PATH_BYTES) {
+        return SW_TX_TOO_SHORT;
+    }
+    unsigned int body_len = raw_tx_len - ELA_PATH_BYTES;
+
+    keys_read_path(raw_tx + body_len, path);
+    if (!keys_path_is_valid(path)) {
+        return SW_BAD_PATH;
+    }
+    // derive the shown key from the committed copy, the one signing uses
+    const unsigned int *signing_path = tx_session_commit_path(path);
+    CHECK_SW(signer_address(signing_path, signer_program_hash));
+
+    CHECK_SW(tx_parse_and_render(signer_program_hash));
+    // the bytes hashed and signed must be exactly those the parser read to its end
+    if (raw_tx_ix != body_len) {
+        return SW_COMMIT_MISMATCH;
+    }
+
+    cx_hash_sha256(raw_tx, body_len, digest, sizeof(digest));
+    tx_session_arm(digest, body_len, max_scr_ix);
+    // derive and render again and compare the text, so one fault cannot show something the bytes
+    // and key do not say
+    CHECK_SW(signer_address(signing_path, signer_program_hash));
+    CHECK_SW(tx_parse_and_render(signer_program_hash));
+    if (raw_tx_ix != body_len || !tx_session_text_matches()) {
+        return SW_COMMIT_MISMATCH;
+    }
+    curr_scr_ix = 0;
+    return SW_OK;
+}
+
+/** Appends one part of a transaction; the last part starts the review and defers the reply. */
+static unsigned short handle_sign(unsigned int rx, unsigned int *flags) {
+    unsigned char p1 = G_io_apdu_buffer[OFFSET_P1];
+    unsigned int lc = G_io_apdu_buffer[OFFSET_LC];
+
+    if (p1 != P1_MORE && p1 != P1_LAST) {
+        return SW_WRONG_P1P2;
+    }
+    if (G_io_apdu_buffer[OFFSET_P2] != 0) {
+        return SW_WRONG_P1P2;
+    }
+    // Lc must match what arrived, or stale buffer bytes would be copied in and signed
+    if (rx != APDU_HEADER_LENGTH + lc) {
+        return SW_WRONG_LENGTH;
+    }
+
+    if (!tx_session_is_receiving()) {
+        abandon_signing_session();
+        tx_session_begin();
+    }
+    if (lc > MAX_TX_RAW_LENGTH - raw_tx_ix) {
+        return SW_TX_TOO_LARGE;
+    }
+    memmove(raw_tx + raw_tx_ix, G_io_apdu_buffer + APDU_HEADER_LENGTH, lc);
+    raw_tx_ix += lc;
+
+    if (p1 == P1_MORE) {
+        return SW_OK;
+    }
+
+    raw_tx_len = raw_tx_ix;
+    CHECK_SW(prepare_review());
+    ui_start_review();
+    *flags |= IO_ASYNCH_REPLY;
+    return SW_OK;
+}
+
+/**
+ * Essentials sends Lc 0, so the received size is checked. P1 00 answers silently, for pairing,
+ * within Ledger's Bitcoin app limits; P1 01 shows the path and address first, for any valid path.
+ */
+static unsigned short handle_get_public_key(unsigned int rx,
+                                            unsigned int *tx,
+                                            unsigned int *flags) {
+    unsigned char p1 = G_io_apdu_buffer[OFFSET_P1];
+    unsigned int path[ELA_PATH_LEN];
+    uint8_t pubkey[ELA_PUBKEY_LEN];
+
+    if ((p1 != P1_KEY_SILENT && p1 != P1_KEY_SHOW) || G_io_apdu_buffer[OFFSET_P2] != 0) {
+        return SW_WRONG_P1P2;
+    }
+    if (rx < APDU_HEADER_LENGTH + ELA_PATH_BYTES) {
+        return SW_PUBKEY_PATH_TOO_SHORT;
+    }
+    // exactly five components: a longer path must not be answered with the key for its start
+    if (rx > APDU_HEADER_LENGTH + ELA_PATH_BYTES) {
+        return SW_WRONG_LENGTH;
+    }
+    keys_read_path(G_io_apdu_buffer + APDU_HEADER_LENGTH, path);
+    if (!keys_path_is_valid(path)) {
+        return SW_BAD_PATH;
+    }
+    if (p1 == P1_KEY_SHOW) {
+        CHECK_SW(ui_start_address_check(path));
+        *flags |= IO_ASYNCH_REPLY;
+        return SW_OK;
+    }
+    // checked twice before deriving, so one skipped check cannot release a key outside the range
+    if (!keys_path_is_silent(path) || !keys_path_is_silent(path)) {
+        return SW_PATH_NEEDS_CHECK;
+    }
+    if (keys_get_public_key(path, pubkey) != CX_OK) {
+        return SW_CRYPTO_FAILED;
+    }
+    memmove(G_io_apdu_buffer, pubkey, ELA_PUBKEY_LEN);
+    *tx = ELA_PUBKEY_LEN;
+    return SW_OK;
+}
+
+/** Runs one command and returns its status word; any reply data is in G_io_apdu_buffer. */
+static unsigned short handle_apdu(unsigned int rx,
+                                  unsigned int *tx,
+                                  unsigned int *flags,
+                                  bool *exit_requested) {
+    if (rx == 0) {
+        return SW_NO_COMMAND;
+    }
+    if (rx < APDU_HEADER_LENGTH) {
+        return SW_WRONG_LENGTH;
+    }
+    // if the buffer doesn't start with the magic byte, return an error.
+    if (G_io_apdu_buffer[OFFSET_CLA] != CLA) {
+        return SW_CLA_NOT_SUPPORTED;
+    }
+
+    switch (G_io_apdu_buffer[OFFSET_INS]) {
+        case INS_SIGN:
+            Timer_Restart();
+            return handle_sign(rx, flags);
+
+        case INS_GET_PUBLIC_KEY:
+            Timer_Restart();
+            abandon_signing_session();
+            return handle_get_public_key(rx, tx, flags);
+
+        case INS_EXIT:
+            abandon_signing_session();
+            *exit_requested = true;
+            return SW_OK;
+
+        default:
+            return SW_INS_NOT_SUPPORTED;
+    }
+}
+
+/** Appends sw after tx bytes of reply data; returns the reply length. */
+static unsigned int append_status_word(unsigned int tx, unsigned short sw) {
+    G_io_apdu_buffer[tx] = sw >> 8;
+    G_io_apdu_buffer[tx + 1] = sw & 0xFF;
+    return tx + 2;
+}
+
+/** Maps an SDK exception to a status word. */
+static unsigned short exception_status_word(unsigned int e) {
+    switch (e & 0xF000) {
+        case 0x6000:
+        case 0x9000:
+            return e;
+        default:
+            return 0x6800 | (e & 0x7FF);
+    }
+}
+
+/** Main loop. Returns true if the transport must be restarted, false on the exit instruction. */
+static bool elastos_main(void) {
     volatile unsigned int tx = 0;
     volatile unsigned int flags = 0;
+    volatile bool exit_requested = false;
+    volatile bool transport_reset = false;
 
     // DESIGN NOTE: the bootloader ignores the way APDU are fetched. The only
     // goal is to retrieve APDU.
@@ -130,182 +339,72 @@ static void elastos_main(void) {
     // sure the io_event is called with a
     // switch event, before the apdu is replied to the bootloader. This avoid
     // APDU injection faults.
-    for (;;) {
-        volatile unsigned short sw = 0;
-
+    while (!exit_requested) {
         BEGIN_TRY {
             TRY {
-                rx = tx;
-                // ensure no race in catch_other if io_exchange throws an error
+                unsigned int reply_len = tx;
+                // so the exception handler sends no stale reply if io_exchange throws
                 tx = 0;
-                rx = io_exchange(CHANNEL_APDU | flags, rx);
+                unsigned int rx = io_exchange(CHANNEL_APDU | flags, reply_len);
                 flags = 0;
 
-                // no apdu received, well, reset the session, and reset the
-                // bootloader configuration
-                if (rx == 0) {
-                    hashTainted = 1;
-                    THROW(0x6982);
+                unsigned int data_len = 0;
+                unsigned int reply_flags = 0;
+                bool exit_now = false;
+                unsigned short sw = handle_apdu(rx, &data_len, &reply_flags, &exit_now);
+                // any failure ends the session, so no state carries over to the next one
+                if (sw != SW_OK) {
+                    abandon_signing_session();
+                    data_len = 0;
+                    reply_flags = 0;
                 }
-
-                // if the buffer doesn't start with the magic byte, return an error.
-                if (G_io_apdu_buffer[0] != CLA) {
-                    hashTainted = 1;
-                    THROW(0x6E00);
-                }
-
-                // check the second byte (0x01) for the instruction.
-                switch (G_io_apdu_buffer[1]) {
-                    // we're getting a transaction to sign, in parts.
-                    case INS_SIGN: {
-                        Timer_Restart();
-                        // check the third byte (0x02) for the instruction subtype.
-                        if ((G_io_apdu_buffer[2] != P1_MORE) && (G_io_apdu_buffer[2] != P1_LAST)) {
-                            hashTainted = 1;
-                            THROW(0x6A86);
-                        }
-
-                        // if this is the first transaction part, reset the hash and all the other
-                        // temporary variables.
-                        if (hashTainted) {
-                            cx_sha256_init(&hash);
-                            hashTainted = 0;
-                            raw_tx_ix = 0;
-                            raw_tx_len = 0;
-                        }
-
-                        // move the contents of the buffer into raw_tx, and update raw_tx_ix to the
-                        // end of the buffer, to be ready for the next part of the tx.
-                        unsigned int len = get_apdu_buffer_length();
-                        unsigned char *in = G_io_apdu_buffer + APDU_HEADER_LENGTH;
-                        unsigned char *out = raw_tx + raw_tx_ix;
-                        if (raw_tx_ix + len > MAX_TX_RAW_LENGTH) {
-                            hashTainted = 1;
-                            THROW(0x6D08);
-                        }
-                        os_memmove(out, in, len);
-                        raw_tx_ix += len;
-
-                        // set the screen to be the first screen.
-                        curr_scr_ix = 0;
-
-                        // set the buffer to end with a zero.
-                        G_io_apdu_buffer[APDU_HEADER_LENGTH + len] = '\0';
-
-                        // if this is the last part of the transaction, parse the transaction into
-                        // human readable text, and display it.
-                        if (G_io_apdu_buffer[2] == P1_LAST) {
-                            raw_tx_len = raw_tx_ix;
-                            raw_tx_ix = 0;
-
-                            // parse the transaction into human readable text.
-                            display_tx_desc();
-
-                            // display the UI, starting at the top screen which is "Sign Tx Now".
-                            ui_top_sign();
-                        }
-
-                        flags |= IO_ASYNCH_REPLY;
-
-                        // if this is not the last part of the transaction, do not display the UI,
-                        // and approve the partial transaction. this adds the TX to the hash.
-                        if (G_io_apdu_buffer[2] == P1_MORE) {
-                            io_seproxyhal_touch_approve(NULL);
-                        }
-                    } break;
-
-                    // we're asked for the public key.
-                    case INS_GET_PUBLIC_KEY: {
-                        Timer_Restart();
-
-                        cx_ecfp_public_key_t publicKey;
-                        cx_ecfp_private_key_t privateKey;
-
-                        if (rx < APDU_HEADER_LENGTH + BIP44_BYTE_LENGTH) {
-                            hashTainted = 1;
-                            THROW(0x6D09);
-                        }
-
-                        /** BIP44 path, used to derive the private key from the mnemonic by calling
-                         * os_perso_derive_node_bip32. */
-                        unsigned char *bip44_in = G_io_apdu_buffer + APDU_HEADER_LENGTH;
-
-                        unsigned int bip44_path[BIP44_PATH_LEN];
-                        uint32_t i;
-                        for (i = 0; i < BIP44_PATH_LEN; i++) {
-                            bip44_path[i] = (bip44_in[0] << 24) | (bip44_in[1] << 16) |
-                                            (bip44_in[2] << 8) | (bip44_in[3]);
-                            bip44_in += 4;
-                        }
-                        unsigned char privateKeyData[32];
-                        os_perso_derive_node_bip32(CX_CURVE_256R1,
-                                                   bip44_path,
-                                                   BIP44_PATH_LEN,
-                                                   privateKeyData,
-                                                   NULL);
-                        cx_ecdsa_init_private_key(CX_CURVE_256R1, privateKeyData, 32, &privateKey);
-
-                        // generate the public key.
-                        cx_ecdsa_init_public_key(CX_CURVE_256R1, NULL, 0, &publicKey);
-                        cx_ecfp_generate_pair(CX_CURVE_256R1, &publicKey, &privateKey, 1);
-
-                        cx_ecdsa_init_private_key(CX_CURVE_256R1, NULL, 0, &privateKey);
-                        // memset(&privateKey, 0x00, sizeof(privateKey));
-                        memset(privateKeyData, 0x00, sizeof(privateKeyData));
-                        // push the public key onto the response buffer.
-                        os_memmove(G_io_apdu_buffer, publicKey.W, 65);
-                        tx = 65;
-
-                        display_public_key(publicKey.W);
-                        refresh_public_key_display();
-
-                        // return 0x9000 OK.
-                        THROW(0x9000);
-                    } break;
-
-                    case 0xFF:  // return to dashboard
-                        goto return_to_dashboard;
-
-                    // we're asked to do an unknown command
-                    default:
-                        // return an error.
-                        hashTainted = 1;
-                        THROW(0x6D00);
-                        break;
+                exit_requested = exit_now;
+                flags = reply_flags;
+                if ((reply_flags & IO_ASYNCH_REPLY) == 0) {
+                    tx = append_status_word(data_len, sw);
                 }
             }
+            CATCH(EXCEPTION_IO_RESET) {
+                // the transport must be started again; main() does that
+                transport_reset = true;
+                exit_requested = true;
+            }
+            CATCH(INVALID_STATE) {
+                // Nano S: a reply found no command to answer, so no status word can be sent
+                // either; start the transport again rather than queue one more reply
+                transport_reset = true;
+                exit_requested = true;
+            }
             CATCH_OTHER(e) {
-                switch (e & 0xF000) {
-                    case 0x6000:
-                    case 0x9000:
-                        sw = e;
-                        break;
-                    default:
-                        sw = 0x6800 | (e & 0x7FF);
-                        break;
-                }
-                // Unexpected exception => report
-                G_io_apdu_buffer[tx] = sw >> 8;
-                G_io_apdu_buffer[tx + 1] = sw;
-                tx += 2;
+                // no reply is pending any more, so the next exchange must not wait as if one were
+                flags = 0;
+                abandon_signing_session();
+                tx = append_status_word(0, exception_status_word(e));
             }
             FINALLY {
             }
         }
         END_TRY;
     }
-
-return_to_dashboard:
-    return;
+    return transport_reset;
 }
 
 /** display function */
 void io_seproxyhal_display(const bagl_element_t *element) {
+#if defined(TARGET_NANOS)
+    bool sent_before = io_seproxyhal_spi_is_status_sent();
+#endif  // TARGET_NANOS
     io_seproxyhal_display_default((bagl_element_t *) element);
+#if defined(TARGET_NANOS)
+    // drawn only if this call sent the event's one status: a skipped send, or a draw after the
+    // status was already out, does not count
+    ui_element_drawn(!sent_before && io_seproxyhal_spi_is_status_sent() ? element : NULL);
+#endif  // TARGET_NANOS
 }
 
 /* io event loop */
 unsigned char io_event(unsigned char channel) {
+    UNUSED(channel);
     // nothing done with the event, throw an error on the transport layer if
     // needed
 
@@ -341,17 +440,11 @@ unsigned char io_event(unsigned char channel) {
                 }
             });
 #else
-            // UX_REDISPLAY();
             Timer_Tick();
-            if (publicKeyNeedsRefresh == 1) {
-                UX_REDISPLAY();
-                publicKeyNeedsRefresh = 0;
+            if (Timer_Expired()) {
+                os_sched_exit(0);
             } else {
-                if (Timer_Expired()) {
-                    os_sched_exit(0);
-                } else {
-                    Timer_UpdateDisplay();
-                }
+                Timer_UpdateDisplay();
             }
 #endif
             break;
@@ -376,50 +469,74 @@ __attribute__((section(".boot"))) int main(void) {
     // exit critical section
     __asm volatile("cpsie i");
 
-    curr_scr_ix = 0;
-    max_scr_ix = 0;
-    raw_tx_ix = 0;
-    hashTainted = 1;
-    uiState = UI_IDLE;
-
     // ensure exception will work as planned
     os_boot();
 
-    UX_INIT();
+    // on Nano S a USB reset or an undeliverable reply ends the main loop; start everything again
+    for (;;) {
+        volatile bool restart = true;
 
-    BEGIN_TRY {
-        TRY {
-            io_seproxyhal_init();
+#if defined(TARGET_NANOS) && defined(HAVE_BOLOS_APP_STACK_CANARY)
+        // io_seproxyhal_init writes the stack canary again, so check it before a restart does
+        if (transport_started && app_stack_canary != APP_STACK_CANARY) {
+            io_seproxyhal_se_reset();
+        }
+#endif
+
+        uiState = UI_IDLE;
+        tx_session_reset();
+        UX_INIT();
+
+        BEGIN_TRY {
+            TRY {
+                io_seproxyhal_init();
+#if defined(TARGET_NANOS) && defined(HAVE_BOLOS_APP_STACK_CANARY)
+                transport_started = true;
+#endif
 
 #ifdef TARGET_NANOX
-            // grab the current plane mode setting
-            G_io_app.plane_mode = os_setting_get(OS_SETTING_PLANEMODE, NULL, 0);
+                // grab the current plane mode setting
+                G_io_app.plane_mode = os_setting_get(OS_SETTING_PLANEMODE, NULL, 0);
 #endif  // TARGET_NANOX
 
-            USB_power(0);
-            USB_power(1);
+                USB_power(0);
+                USB_power(1);
 
-            // init the public key display to "no public key".
-            display_no_public_key();
+                // init the public key display to "no public key".
+                display_no_public_key();
 
-            // show idle screen.
-            ui_idle();
+                // show idle screen.
+                ui_idle();
 
-            // set timer
-            Timer_Set();
+                // set timer
+                Timer_Set();
 
 #ifdef HAVE_BLE
-            BLE_power(0, NULL);
-            BLE_power(1, "Nano X");
+                BLE_power(0, NULL);
+                BLE_power(1, "Nano X");
 #endif  // HAVE_BLE
 
-            // run main event loop.
-            elastos_main();
+                // run main event loop.
+                restart = elastos_main();
+            }
+            CATCH(EXCEPTION_IO_RESET) {
+                CLOSE_TRY;
+                continue;
+            }
+            CATCH_OTHER(e) {
+                UNUSED(e);
+                CLOSE_TRY;
+                break;
+            }
+            FINALLY {
+            }
         }
-        CATCH_OTHER(e) {
-        }
-        FINALLY {
+        END_TRY;
+        if (!restart) {
+            break;
         }
     }
-    END_TRY;
+    // Leave through the OS rather than returning from main.
+    os_sched_exit(-1);
+    return 0;
 }
