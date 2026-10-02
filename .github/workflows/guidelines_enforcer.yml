@@ -1,23 +1,26 @@
-name: Ensure compliance with Ledger guidelines
+name: Ledger guidelines
 
-# This workflow is mandatory in all applications
-# It calls a reusable workflow guidelines_enforcer developed by Ledger's internal developer team.
-# The successful completion of the reusable workflow is a mandatory step for an app to be available on the Ledger
-# application store.
-#
-# More information on the guidelines can be found in the repository:
-# LedgerHQ/ledger-app-workflows/
+# The load parameter check fails until Ledger's app database records the secp256r1 curve and the
+# app's permissions.
 
 on:
   workflow_dispatch:
   push:
     branches:
       - master
-      - main
       - develop
   pull_request:
 
+# Read-only token; the job grants only the scopes Ledger's workflow declares.
+permissions:
+  contents: read
+
 jobs:
   guidelines_enforcer:
-    name: Call Ledger guidelines_enforcer
-    uses: LedgerHQ/ledger-app-workflows/.github/workflows/reusable_guidelines_enforcer.yml@v1
+    name: Ledger guidelines enforcer
+    uses: LedgerHQ/ledger-app-workflows/.github/workflows/reusable_guidelines_enforcer.yml@db5fd3d8e4fe724ccc4617709c9e245976ee8280  # v1.113.0
+    # The scopes this workflow declares at v1.113.0; GitHub will not start it with fewer.
+    permissions:
+      contents: read
+      actions: write        # upload the build and the scan results
+      pull-requests: write  # the build it runs may comment on pull requests

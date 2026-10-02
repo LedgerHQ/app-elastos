@@ -1,0 +1,84 @@
+name: Host fuzzing
+
+# Fuzzes the parser and signing code under sanitizers, including Nano S code no emulator runs, and
+# fails unless every planted bug is caught. A second job checks the device builds.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+      - develop
+  pull_request:
+
+# Both jobs only read the repository.
+permissions:
+  contents: read
+
+jobs:
+  host_tests:
+    name: Parser and signing state machine
+    # glibc 2.38 or later, for strlcpy
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false  # no later step needs the token
+      - name: Fuzz the parser and the signing state machine
+        run: make -C tests/host RUNS=200000
+      - name: Check that every planted bug is caught
+        run: make -C tests/host controls
+
+  built_objects:
+    name: No flash addresses in the app's data
+    runs-on: ubuntu-24.04
+    container:
+      image: ghcr.io/ledgerhq/ledger-app-builder/ledger-app-builder-lite@sha256:f1dcb882b019566d4c73f1b3922793ab08a4bf51b311155ee20455da8bf4b3f7
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false  # no later step needs the token
+      - name: Build every device
+        run: |
+          make BOLOS_SDK=$NANOS_SDK
+          make BOLOS_SDK=$NANOX_SDK
+          make BOLOS_SDK=$NANOSP_SDK
+      - name: Check no device is built for debugging
+        # A debug build links the SDK's print code and gives src/ debug info. Only src/ is checked:
+        # a Nano S release build carries debug info from the compiler's own libraries.
+        run: |
+          top=$(pwd -P)
+          for d in nanos nanox nanos2; do
+            elf=build/$d/bin/app.elf
+            arm-none-eabi-nm "$elf" > build/$d/symbols.txt
+            if awk '{ print $NF }' build/$d/symbols.txt | grep -xE 'mcu_usb_printf|screen_printf|os_io_seph_cmd_printf'; then
+              echo "debug print code in the $d app"; exit 1
+            fi
+            arm-none-eabi-readelf --debug-dump=info "$elf" > build/$d/dwarf.txt
+            if grep 'DW_AT_name' build/$d/dwarf.txt | grep -F "$top/src/"; then
+              echo "the $d app's sources were compiled with debug information"; exit 1
+            fi
+          done
+      - name: Check the app objects
+        run: python3 tests/host/check_pic_objects.py build/nanos build/nanox build/nanos2
+      - name: Check the stack protector is on for Nano X and Nano S Plus
+        run: |
+          for d in nanox nanos2; do
+            arm-none-eabi-nm build/$d/bin/app.elf | grep -q __stack_chk_fail || { echo "no stack protector on $d"; exit 1; }
+          done
+      - name: Check the stack canary is on for Nano S
+        # The canary value is a literal in the code only when HAVE_BOLOS_APP_STACK_CANARY is set.
+        run: |
+          arm-none-eabi-objdump -d build/nanos/bin/app.elf > build/nanos/app.dis
+          grep -qiE '\.word[[:space:]]+0xdead0031' build/nanos/app.dis || { echo "no stack canary on nanos"; exit 1; }
+      - name: Check the doubled checks before signing are still made twice
+        # The compiler can merge two identical checks, which host tests cannot see; this fails
+        # unless the disassembly makes and acts on each doubled check twice.
+        run: python3 tests/host/check_double_checks.py build/nanos build/nanox build/nanos2
+      - name: Check the Nano S stack holds pressing Sign
+        # No emulator runs Nano S. Rebuild with frame sizes, confirm the same app, and fail if
+        # pressing Sign could overrun the stack or the app's frames pass their budget.
+        run: |
+          CFLAGS=-fstack-usage make BOLOS_SDK=$NANOS_SDK BUILD_DIR=build-stack
+          cmp build/nanos/bin/app.hex build-stack/nanos/bin/app.hex
+          python3 tests/host/check_stack_depth.py build-stack/nanos

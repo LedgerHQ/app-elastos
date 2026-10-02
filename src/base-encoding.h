@@ -4,41 +4,13 @@
 #ifndef BASE_ENCODING_H
 #define BASE_ENCODING_H
 
-#include <stdbool.h>
-#include "os.h"
+#include <stddef.h>
+#include <stdint.h>
 
-#define BASEX_DIVISION_BUFFER_SIZE 128
+/** Longest input: a 25-byte address. */
+#define BASE58_MAX_INPUT_LEN 25
 
-#define BASEX_DIVISION_RADIX 256
+/** Writes in as NUL-terminated base58; returns its length, or 0 if in or the text is too long. */
+size_t encode_base_58(const uint8_t *in, size_t in_len, char *out, size_t out_size);
 
-/** encodes in_length bytes from in into base-2, writes the converted bytes to out, stopping when
- * it converts out_length bytes.  */
-unsigned int encode_base_2(const void *in,
-                           const unsigned int in_length,
-                           char *out,
-                           const unsigned int out_length,
-                           const bool enable_debug);
-
-/** encodes in_length bytes from in into base-10, writes the converted bytes to out, stopping when
- * it converts out_length bytes.  */
-unsigned int encode_base_10(const void *in,
-                            const unsigned int in_length,
-                            char *out,
-                            const unsigned int out_length,
-                            const bool enable_debug);
-
-/** encodes in_length bytes from in into base-32, writes the converted bytes to out, stopping when
- * it converts out_length bytes.  */
-unsigned int encode_base_32(const void *in,
-                            const unsigned int in_length,
-                            char *out,
-                            const unsigned int out_length,
-                            const bool enable_debug);
-
-unsigned int encode_base_58(const void *in,
-                            const unsigned int in_length,
-                            char *out,
-                            const unsigned int out_length,
-                            const bool enable_debug);
-
-#endif  // BANANO_H
+#endif  // BASE_ENCODING_H

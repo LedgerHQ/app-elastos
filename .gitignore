@@ -5,3 +5,8 @@
 /obj/
 src/glyphs.h
 src/glyphs.c
+/build/
+tests/host/build/
+tests/snapshots-tmp/
+__pycache__/
+/snapshots-tmp/
