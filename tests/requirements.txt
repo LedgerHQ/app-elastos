@@ -1,0 +1,7 @@
+# Floors, not pins: CI's builder image cannot be pinned and each Speculos runs only some SDK API
+# levels. If a newer Speculos moves pixels, regenerate with --golden_run and check each image.
+pytest>=9.1.1
+ragger[speculos]>=1.47.3
+speculos>=0.27.0
+ecdsa>=0.19.2
+pycryptodome>=3.23.0

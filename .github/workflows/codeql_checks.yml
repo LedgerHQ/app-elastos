@@ -1,0 +1,30 @@
+name: CodeQL
+
+# Ledger requires this, with every alert above low resolved before the security audit.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+      - develop
+  pull_request:
+    paths-ignore:
+      - '.github/workflows/*.yml'
+      - 'tests/*'
+
+# Read-only token; the job grants only the scopes Ledger's workflow declares.
+permissions:
+  contents: read
+
+jobs:
+  analyse:
+    name: Call Ledger CodeQL analysis
+    uses: LedgerHQ/ledger-app-workflows/.github/workflows/reusable_codeql_checks.yml@db5fd3d8e4fe724ccc4617709c9e245976ee8280  # v1.113.0
+    # The scopes this workflow declares at v1.113.0; GitHub will not start it with fewer.
+    permissions:
+      contents: read
+      security-events: write  # upload the analysis
+      actions: read           # let the CodeQL action read the workflow run
+    secrets:
+      token: ${{ secrets.GITHUB_TOKEN }}

@@ -10,18 +10,27 @@ on:
       - master
       - develop
 
+# The job only reads the repository.
+permissions:
+  contents: read
+
 jobs:
   job_lint:
     name: Lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Clone
-        uses: actions/checkout@v2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false  # no later step needs the token
+
+      # Pinned from PyPI; the old lint action built on a moving, unsupported Python 3.9 image.
+      - name: Install clang-format 11.1.0
+        run: |
+          python3 -m venv "$RUNNER_TEMP/clang-format"
+          "$RUNNER_TEMP/clang-format/bin/pip" install --only-binary=:all: clang-format==11.1.0.2
 
       - name: Lint
-        uses: DoozyX/clang-format-lint-action@v0.11
-        with:
-          source: './src'
-          extensions: 'h,c'
-          clangFormatVersion: 11
+        run: |
+          "$RUNNER_TEMP/clang-format/bin/clang-format" --style=file --dry-run --Werror src/*.c src/*.h

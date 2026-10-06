@@ -1,0 +1,40 @@
+MIT License
+
+Copyright (c) 2018 coranos and the contributors to the Elastos Ledger app
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-------------------------------------------------------------------------------
+
+These files come from Ledger's sample application and SDK and remain under the
+Apache License, Version 2.0; the license text is in LICENSE-APACHE-2.0:
+
+  src/main.c
+  Makefile
+  glyphs/icon_back.gif
+  glyphs/icon_crossmark.gif
+  glyphs/icon_dashboard.gif
+  glyphs/icon_eye.gif
+  glyphs/icon_validate_14.gif
+
+The source files say so in their headers. The five glyphs are byte for byte
+copies of the SDK's own; icon_back.gif and icon_dashboard.gif are its
+icon_back_x.gif and icon_dashboard_x.gif. The contributors to the Elastos Ledger
+app modified src/main.c and the Makefile from Ledger's originals, and each file
+says so under its header.

@@ -1,6 +1,7 @@
 #*******************************************************************************
 #   Ledger Blue
 #   (c) 2016 Ledger
+#   Modified by the contributors to the Elastos Ledger app, 2018 to 2026
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,126 +17,84 @@
 #*******************************************************************************
 
 ifeq ($(BOLOS_SDK),)
-$(error BOLOS_SDK is not set)
+$(error Environment variable BOLOS_SDK is not set)
 endif
-include $(BOLOS_SDK)/Makefile.defines
 
-# Main app configuration
+include $(BOLOS_SDK)/Makefile.target
 
+########################################
+#        Mandatory configuration       #
+########################################
 APPNAME = "Elastos"
-APPVERSION = 1.1.5
-APP_LOAD_PARAMS = --path "44'/2305'" --appFlags 0x240 --apdu $(COMMON_LOAD_PARAMS)
-APP_DELETE_PARAMS =  --apdu $(COMMON_DELETE_PARAMS)
 
-ifeq ($(TARGET_NAME),TARGET_NANOS)
-ICONNAME=nano_icon.gif
-else
-ICONNAME=nanox_icon.gif
-endif
-
-
-# Build configuration
-# DEFINES += HAVE_UX_FLOW
-
-DEFINES += APPVERSION=\"$(APPVERSION)\"
-
-DEFINES += OS_IO_SEPROXYHAL
-DEFINES += HAVE_BAGL HAVE_SPRINTF
-
-
-DEFINES += HAVE_IO_USB HAVE_L4_USBLIB IO_USB_MAX_ENDPOINTS=7 IO_HID_EP_LENGTH=64 HAVE_USB_APDU
-
-DEFINES += USB_SEGMENT_SIZE=64
-DEFINES += U2F_PROXY_MAGIC=\"NEO\"
-DEFINES += HAVE_IO_U2F
-
-WEBUSB_URL     = www.ledgerwallet.com
-DEFINES       += HAVE_WEBUSB WEBUSB_URL_SIZE_B=$(shell echo -n $(WEBUSB_URL) | wc -c) WEBUSB_URL=$(shell echo -n $(WEBUSB_URL) | sed -e "s/./\\\'\0\\\',/g")
-
-ifeq ($(TARGET_NAME),TARGET_NANOX)
-DEFINES       += HAVE_BLE BLE_COMMAND_TIMEOUT_MS=2000
-DEFINES       += HAVE_BLE_APDU # basic ledger apdu transport over BLE
-endif
-
-ifeq ($(TARGET_NAME),TARGET_NANOS)
-DEFINES       += IO_SEPROXYHAL_BUFFER_SIZE_B=128
-DEFINES       += COMPLIANCE_UX_160
-else
-DEFINES       += IO_SEPROXYHAL_BUFFER_SIZE_B=300
-DEFINES       += HAVE_GLO096
-DEFINES       += HAVE_BAGL BAGL_WIDTH=128 BAGL_HEIGHT=64
-DEFINES       += HAVE_BAGL_ELLIPSIS # long label truncation feature
-DEFINES       += HAVE_BAGL_FONT_OPEN_SANS_REGULAR_11PX
-DEFINES       += HAVE_BAGL_FONT_OPEN_SANS_EXTRABOLD_11PX
-DEFINES       += HAVE_BAGL_FONT_OPEN_SANS_LIGHT_16PX
-DEFINES       += HAVE_UX_FLOW
-endif
-
-# Enabling debug PRINTF
-DEBUG = 0
-ifneq ($(DEBUG),0)
-
-        ifeq ($(TARGET_NAME),TARGET_NANOS)
-                DEFINES   += HAVE_PRINTF PRINTF=screen_printf
-        else
-                DEFINES   += HAVE_PRINTF PRINTF=mcu_usb_printf
-        endif
-else
-        DEFINES   += PRINTF\(...\)=
-endif
-
-##############
-#  Compiler  #
-##############
-ifneq ($(BOLOS_ENV),)
-$(info BOLOS_ENV=$(BOLOS_ENV))
-CLANGPATH := $(BOLOS_ENV)/clang-arm-fropi/bin/
-GCCPATH := $(BOLOS_ENV)/gcc-arm-none-eabi-5_3-2016q1/bin/
-else
-$(info BOLOS_ENV is not set: falling back to CLANGPATH and GCCPATH)
-endif
-
-ifeq ($(CLANGPATH),)
-$(info CLANGPATH is not set: clang will be used from PATH)
-endif
-
-ifeq ($(GCCPATH),)
-$(info GCCPATH is not set: arm-none-eabi-* will be used from PATH)
-endif
-
-CC := $(CLANGPATH)clang
-CFLAGS += -O3 -Os
-
-AS := $(GCCPATH)arm-none-eabi-gcc
-AFLAGS +=
-
-LD := $(GCCPATH)arm-none-eabi-gcc
-LDFLAGS += -O3 -Os
-LDLIBS += -lm -lgcc -lc
+APPVERSION_M = 1
+APPVERSION_N = 2
+APPVERSION_P = 0
+APPVERSION = "$(APPVERSION_M).$(APPVERSION_N).$(APPVERSION_P)"
 
 APP_SOURCE_PATH += src
-SDK_SOURCE_PATH += lib_stusb lib_stusb_impl lib_u2f
-SDK_SOURCE_PATH += lib_ux
 
-ifeq ($(TARGET_NAME),TARGET_NANOX)
-SDK_SOURCE_PATH += lib_blewbxx lib_blewbxx_impl
+ICON_NANOS = icons/app_elastos_16px.gif
+ICON_NANOX = icons/app_elastos_14px.gif
+ICON_NANOSP = icons/app_elastos_14px.gif
+
+CURVE_APP_LOAD_PARAMS = secp256r1
+PATH_APP_LOAD_PARAMS = "44'/2305'"
+
+VARIANT_PARAM = COIN
+VARIANT_VALUES = elastos
+
+########################################
+#     Application custom permissions   #
+########################################
+# None. Nano X gets the settings permission from ENABLE_BLUETOOTH, which Bluetooth requires.
+
+########################################
+# Application communication interfaces #
+########################################
+# Essentials reaches the Nano X over Bluetooth.
+ENABLE_BLUETOOTH = 1
+
+########################################
+#         NBGL custom features         #
+########################################
+
+########################################
+#          Features enablers           #
+########################################
+# Only the Nano S SDK checks this canary below the stack; Nano X and Nano S Plus rely on the stack
+# protector below.
+DEFINES += HAVE_BOLOS_APP_STACK_CANARY
+# The Nano S SDK's own app_metadata.c fails Werror under recent clang; app sources are clean.
+ifeq ($(TARGET_NAME),TARGET_NANOS)
+CFLAGS += -Wno-error=unterminated-string-initialization
+endif
+# Nano S: fail the link if globals leave less stack than this (SDK default 1,024). Sign needs about
+# 1,516 bytes; tests/host/check_stack_depth.py checks that path's frames in CI.
+ifeq ($(TARGET_NAME),TARGET_NANOS)
+APP_STACK_MIN_SIZE = 1600
+endif
+# Nano X and Nano S Plus: src/ui.c wraps element drawing, so a review step counts as drawn only if
+# every element was.
+ifneq ($(TARGET_NAME),TARGET_NANOS)
+LDFLAGS += -Wl,--wrap=io_seph_ux_display_bagl_element
 endif
 
-# Main rules
+########################################
+#        Stack protection features     #
+########################################
+# Nano X and Nano S Plus only; catches stack buffer overruns, not stack depth.
+ENABLE_STACK_PROTECTOR = 1
 
-all: default
+########################################
+#          Features disablers          #
+########################################
+# The app has its own main loop and I/O handlers (src/main.c).
+DISABLE_STANDARD_APP_FILES = 1
+DISABLE_STANDARD_APP_SYNC_RAPDU = 1
+# No U2F transport: no Elastos client uses it.
+DISABLE_STANDARD_U2F = 1
+# Nano S uses UX_DISPLAY; Nano X and Nano S Plus get the flow engine from the SDK anyway.
+DISABLE_STANDARD_BAGL_UX_FLOW = 1
 
-load: all
-	python3 -m ledgerblue.loadApp $(APP_LOAD_PARAMS)
-
-delete:
-	python3 -m ledgerblue.deleteApp $(APP_DELETE_PARAMS)
-
-# import rules to compile glyphs(/pone)
-include $(BOLOS_SDK)/Makefile.glyphs
-
-# Import generic rules from the SDK
-include $(BOLOS_SDK)/Makefile.rules
-
-listvariants:
-	@echo VARIANTS COIN elastos
+include $(BOLOS_SDK)/Makefile.standard_app
